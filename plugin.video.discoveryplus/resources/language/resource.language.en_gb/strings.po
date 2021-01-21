@@ -1,0 +1,106 @@
+# discovery+ language file
+msgid ""
+msgstr ""
+"Project-Id-Version: plugin.video.discoveryplus\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2018-09-25 23:00+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: English\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+"Plural-Forms: nplurals=2; plural=(n != 1)\n"
+
+msgctxt "#30000"
+msgid "General"
+msgstr ""
+
+msgctxt "#30001"
+msgid "Frontpage"
+msgstr ""
+
+msgctxt "#30002"
+msgid "Playable "
+msgstr ""
+
+msgctxt "#30003"
+msgid "Information"
+msgstr ""
+
+msgctxt "#30004"
+msgid "Please enter your login credentials in the add-on settings."
+msgstr ""
+
+msgctxt "#30005"
+msgid "Reset credentials"
+msgstr ""
+
+msgctxt "#30006"
+msgid "Error"
+msgstr ""
+
+msgctxt "#30007"
+msgid "Search"
+msgstr ""
+
+msgctxt "#30008"
+msgid "No results found for"
+msgstr ""
+
+msgctxt "#30009"
+msgid "Add to favorites (discovery+)"
+msgstr ""
+
+msgctxt "#30010"
+msgid "Delete from favorites (discovery+)"
+msgstr ""
+
+msgctxt "#30011"
+msgid "Season"
+msgstr ""
+
+msgctxt "#30012"
+msgid "Wrong email or password"
+msgstr ""
+
+msgctxt "#30013"
+msgid "Site"
+msgstr ""
+
+msgctxt "#30014"
+msgid "Watch"
+msgstr ""
+
+msgctxt "#30015"
+msgid "Email"
+msgstr ""
+
+msgctxt "#30016"
+msgid "Password"
+msgstr ""
+
+msgctxt "#30017"
+msgid "Favorites"
+msgstr ""
+
+msgctxt "#30018"
+msgid "Results per Page"
+msgstr ""
+
+msgctxt "#30019"
+msgid "Next Page"
+msgstr ""
+
+msgctxt "#30020"
+msgid "I use my own cookies.txt"
+msgstr ""
+
+msgctxt "#30021"
+msgid "Cookies.txt location"
+msgstr ""
+
+msgctxt "#30022"
+msgid "It looks like you are not logged in to discovery+. Please login using Chrome and export cookies to file."
+msgstr ""

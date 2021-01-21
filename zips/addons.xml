@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<addons>
+<addon id="plugin.video.discoveryplus" version="1.3.5" name="discovery+" provider-name="Dis90">
+<requires>
+  <import addon="xbmc.python" version="2.24.0"/>
+  <import addon="script.module.requests" version="2.9.1"/>
+  <import addon="script.module.inputstreamhelper" version="0.2.4"/>
+  <import addon="inputstream.adaptive" version="2.0.4"/>
+</requires>
+<extension point="xbmc.python.pluginsource" library="addon.py">
+  <provides>video</provides>
+</extension>
+<extension point="xbmc.addon.metadata">
+  <summary lang="en">discovery+</summary>
+  <description lang="en"></description>
+  <disclaimer lang="en"></disclaimer>
+  <assets>
+    <icon>resources/icon.png</icon>
+    <fanart>resources/fanart.png</fanart>
+  </assets>
+  <news></news>
+</extension>
+</addon>
+
+<addon id="ADDON_ID_HERE" name="Dis90 add-on repository" version="1.0.0" provider-name="Dis90">
+    <extension point="xbmc.addon.repository" name="Example Repository">
+        <dir>
+            <info compressed="false">https://raw.githubusercontent.com/Dis90/repository.dis90/master/zips/addons.xml</info>
+            <checksum>https://raw.githubusercontent.com/Dis90/repository.dis90/master/zips/addons.xml.md5</checksum>
+            <datadir zip="true">https://raw.githubusercontent.com/repository.dis90/master/zips/</datadir>
+        </dir>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary>Dis90 Repository for Kodi 18</summary>
+        <description>Dis90 Repository for Kodi 18 add-ons</description>
+        <disclaimer></disclaimer>
+        <platform>all</platform>
+        <assets>
+            <icon>icon.png</icon>
+            <fanart>fanart.jpg</fanart>
+        </assets>
+    </extension>
+</addon>
+</addons>
