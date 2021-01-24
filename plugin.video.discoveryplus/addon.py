@@ -656,23 +656,7 @@ def list_page(page_path, search_query=None):
                                                                         if collectionItem['attributes'].get('title'):
                                                                             title = collectionItem['attributes'][
                                                                                 'title']
-
-                                                                            # 1 = Promotion items
-                                                                            if collection['relationships'][
-                                                                                        'items']['data'][1][
-                                                                                        'id'] == collectionItem['id']:
-                                                                                collection_id = \
-                                                                                    collectionItem2['relationships'][
-                                                                                        'collection']['data']['id']
-
-                                                                                params = {
-                                                                                    'action': 'list_collection_items',
-                                                                                    'page_path': page_path,
-                                                                                    'collection_id': collection_id
-                                                                                }
-
                                                                         # No title in collectionItem attributes, use show name
-                                                                        # And go to show page
                                                                         elif collectionItem['relationships'].get(
                                                                                 'show'):
                                                                             for show in shows:
@@ -680,24 +664,8 @@ def list_page(page_path, search_query=None):
                                                                                         collectionItem['relationships'][
                                                                                             'show']['data']['id']:
                                                                                     title = show['attributes']['name']
-
-                                                                                    # Find page path from routes
-                                                                                    for route in routes:
-                                                                                        if route['id'] == \
-                                                                                                show['relationships'][
-                                                                                                    'routes']['data'][
-                                                                                                    0]['id']:
-                                                                                            next_page_path = \
-                                                                                            route['attributes']['url']
-
-                                                                                    params = {
-                                                                                        'action': 'list_page',
-                                                                                        'page_path': next_page_path
-                                                                                    }
-
                                                                         else:
                                                                             title = None
-                                                                            params = {}
 
                                                                         # Fanart
                                                                         if collectionItem['relationships'].get('image'):
@@ -735,6 +703,22 @@ def list_page(page_path, search_query=None):
                                                                         art = {
                                                                             'fanart': fanart_image,
                                                                             'thumb': fanart_image
+                                                                        }
+
+                                                                        for collectionItem2 in collectionItems:
+                                                                            # 1 = Promotion items
+                                                                            if \
+                                                                                    collection['relationships'][
+                                                                                        'items']['data'][1][
+                                                                                        'id'] == collectionItem2['id']:
+                                                                                collection_id = \
+                                                                                    collectionItem2['relationships'][
+                                                                                        'collection']['data']['id']
+
+                                                                        params = {
+                                                                            'action': 'list_collection_items',
+                                                                            'page_path': page_path,
+                                                                            'collection_id': collection_id
                                                                         }
 
                                                                         helper.add_item(title, params, art=art,
@@ -1821,7 +1805,24 @@ def router(paramstring):
             helper.reset_credentials()
         if params['setting'] == 'set_locale':
             helper.set_locale()
+    elif 'iptv' in params:
+        # Get new token
+        helper.d.get_token()
+
+        if params['iptv'] == 'channels':
+            """Return JSON-STREAMS formatted data for all live channels"""
+            from resources.lib.iptvmanager import IPTVManager
+            port = int(params.get('port'))
+            IPTVManager(port).send_channels()
+        if params['iptv'] == 'epg':
+            """Return JSON-EPG formatted data for all live channel EPG data"""
+            from resources.lib.iptvmanager import IPTVManager
+            port = int(params.get('port'))
+            IPTVManager(port).send_epg()
     elif 'action' in params:
+        # Get new token
+        helper.d.get_token()
+
         if params['action'] == 'list_page':
             list_page(page_path=params['page_path'])
         elif params['action'] == 'list_favorites':
