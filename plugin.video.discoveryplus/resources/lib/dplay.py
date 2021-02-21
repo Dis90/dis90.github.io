@@ -3,17 +3,16 @@
 A Kodi-agnostic library for Discovery+
 """
 import os
-from io import open, StringIO
 import xbmc
 import re
 import json
-import codecs
 import time
 import calendar
 from datetime import datetime, timedelta, date
 import requests
 import uuid
 import xbmcaddon
+import xbmcgui
 
 try: # Python 3
     import http.cookiejar as cookielib
@@ -39,7 +38,7 @@ def slugify(text):
     return text
 
 class Dplay(object):
-    def __init__(self, settings_folder, site, locale, logging_prefix, numresults, cookiestxt, cookiestxt_file, sync_playback):
+    def __init__(self, settings_folder, site, locale, logging_prefix, numresults, cookiestxt, cookiestxt_file, sync_playback, us_uhd):
         self.logging_prefix = logging_prefix
         self.site_url = site
         self.locale = locale
@@ -48,6 +47,7 @@ class Dplay(object):
         self.client_id = str(uuid.uuid1())
         self.device_id = self.client_id.replace("-", "")
         self.sync_playback = sync_playback
+        self.us_uhd = us_uhd
 
         if self.locale_suffix == 'gb':
             self.api_url = 'https://disco-api.' + self.site_url
@@ -57,6 +57,10 @@ class Dplay(object):
             self.api_url = 'https://us1-prod-direct.' + self.site_url
             self.realm = 'go'
             self.site_headers = {'x-disco-params': 'realm=go,siteLookupKey=dplus_us', 'x-disco-client': 'WEB:UNKNOWN:dplus_us:0.0.1'}
+        elif self.locale_suffix == 'in':
+            self.api_url = 'https://ap2-prod-direct.' + self.site_url
+            self.realm = 'dplusindia'
+            self.site_headers = {'x-disco-params': 'realm=dplusindia', 'x-disco-client': 'WEB:UNKNOWN:dplus-india:prod'}
         else:
             self.api_url = 'https://disco-api.' + self.site_url
             self.realm = 'dplay' + self.locale_suffix
@@ -336,14 +340,20 @@ class Dplay(object):
         data = self.make_request(url, 'get')
         return json.loads(data)['data']
 
-    def get_menu(self):
-        url = '{api_url}/cms/collections/web-menubar'.format(api_url=self.api_url)
+    def get_menu(self, menu):
+        url = '{api_url}/cms/collections{menu}'.format(api_url=self.api_url, menu=menu)
 
         params = {
             'include': 'default'
         }
 
         data = json.loads(self.make_request(url, 'get', params=params, headers=self.site_headers))
+        return data
+
+    def get_config_in(self):
+        url = '{api_url}/cms/configs/client-config-pwa'.format(api_url=self.api_url)
+
+        data = json.loads(self.make_request(url, 'get', headers=self.site_headers))
         return data
 
     def get_page(self, path, search_query=None):
@@ -353,8 +363,8 @@ class Dplay(object):
             'include': 'default'
         }
 
-        # discoveryplus.com (US)
-        if self.locale_suffix == 'us':
+        # discoveryplus.com (US) and discoveryplus.in
+        if self.locale_suffix == 'us' or self.locale_suffix == 'in':
             params['decorators'] = 'viewingHistory,isFavorite'
         else:
             params['decorators'] = 'viewingHistory'
@@ -366,7 +376,7 @@ class Dplay(object):
         data = json.loads(self.make_request(url, 'get', params=params, headers=self.site_headers))
         return data
 
-    def get_collections(self, collection_id, mandatoryParams=None, parameter=None, page=1):
+    def get_collections(self, collection_id, page, mandatoryParams=None, parameter=None):
         if mandatoryParams and parameter:
             url = '{api_url}/cms/collections/{collection_id}?{mandatoryParams}&{parameter}'.format(api_url=self.api_url, collection_id=collection_id, mandatoryParams=mandatoryParams, parameter=parameter)
         elif mandatoryParams is None and parameter:
@@ -382,11 +392,10 @@ class Dplay(object):
             'page[items.size]': self.numResults
         }
 
-        if self.locale_suffix == 'us':
+        if self.locale_suffix == 'us' or self.locale_suffix == 'in':
             params['decorators'] = 'viewingHistory,isFavorite'
         else:
             params['decorators'] = 'viewingHistory'
-
 
         data = json.loads(self.make_request(url, 'get', params=params, headers=self.site_headers))
         return data
@@ -407,6 +416,46 @@ class Dplay(object):
         url = '{api_url}/users/me/favorites'.format(api_url=self.api_url)
         params = {
             'include': 'default'
+        }
+
+        data = json.loads(self.make_request(url, 'get', params=params, headers=self.site_headers))
+        return data
+
+    def get_watchlist_in(self, playlist):
+        url = '{api_url}/content/videos'.format(api_url=self.api_url)
+        params = {
+            'decorators': 'viewingHistory,isFavorite',
+            'include': 'images,contentPackages,show,genres,primaryChannel,taxonomyNodes',
+            'filter[playlist]': playlist,
+            'page[size]': 100,
+            'page[number]': 1
+        }
+
+        data = json.loads(self.make_request(url, 'get', params=params, headers=self.site_headers))
+        return data
+
+    def get_favorites_in(self):
+        url = '{api_url}/content/shows'.format(api_url=self.api_url)
+        params = {
+            'decorators': 'isFavorite',
+            'include': 'images,contentPackages,taxonomyNodes',
+            'filter[isFavorite]': 'true',
+            'page[size]': 100,
+            'page[number]': 1
+        }
+
+        data = json.loads(self.make_request(url, 'get', params=params, headers=self.site_headers))
+        return data
+
+    def get_favorite_videos_in(self, videoType):
+        url = '{api_url}/content/videos'.format(api_url=self.api_url)
+        params = {
+            'decorators': 'viewingHistory,isFavorite',
+            'include': 'images,contentPackages,show,genres,primaryChannel,taxonomyNodes',
+            'filter[isFavorite]': 'true',
+            'page[size]': 100,
+            'page[number]': 1,
+            'filter[videoType]': videoType
         }
 
         data = json.loads(self.make_request(url, 'get', params=params, headers=self.site_headers))
@@ -570,6 +619,60 @@ class Dplay(object):
 
         return channels_list
 
+    def get_channels_in(self):
+        page_data = self.get_page('/explore-v2')
+
+        collections = list(filter(lambda x: x['type'] == 'collection', page_data['included']))
+        collectionItems = list(filter(lambda x: x['type'] == 'collectionItem', page_data['included']))
+        channels = list(filter(lambda x: x['type'] == 'channel', page_data['included']))
+        images = list(filter(lambda x: x['type'] == 'image', page_data['included']))
+
+        channels_list = []
+
+        for collection in collections:
+            if collection['attributes']['alias'] == 'explore-national-live-channels-list':
+                for c in collection['relationships']['items']['data']:
+                    for collectionItem in collectionItems:
+                        if c['id'] == collectionItem['id']:
+                            if collectionItem['relationships'].get('channel'):
+                                for channel in channels:
+                                    if \
+                                            collectionItem['relationships']['channel']['data'][
+                                                'id'] == channel['id']:
+
+                                        if channel['attributes']['hasLiveStream']:
+                                            url = 'plugin://plugin.video.discoveryplus/?action=play&video_id={channel_id}&video_type=channel'.format(
+                                                channel_id=channel['id'])
+
+                                            channel_logo = None
+                                            fanart_image = None
+                                            if channel['relationships'].get('images'):
+                                                for image in images:
+                                                    for channel_images in \
+                                                            channel['relationships']['images'][
+                                                                'data']:
+                                                        if image['id'] == channel_images[
+                                                            'id']:
+                                                            if image['attributes'][
+                                                                'kind'] == 'logo':
+                                                                channel_logo = \
+                                                                    image['attributes']['src']
+                                                            if image['attributes'][
+                                                                'kind'] == 'default':
+                                                                fanart_image = \
+                                                                    image['attributes']['src']
+
+                                            channels_list.append(dict(
+                                                id='%s@%s' % (channel['id'], slugify(
+                                                    xbmcaddon.Addon(id='plugin.video.discoveryplus').getAddonInfo(
+                                                        'name'))),
+                                                name=channel['attributes']['name'],
+                                                logo=channel_logo if channel_logo else fanart_image,
+                                                stream=url
+                                            ))
+
+        return channels_list
+
     def get_epg(self):
         url = '{api_url}/cms/configs/web-prod'.format(api_url=self.api_url)
         epg_channels = json.loads(self.make_request(url, 'get', headers=self.site_headers))['data']['attributes']['config']['epg']['channels']
@@ -641,120 +744,37 @@ class Dplay(object):
             ))
         return epg
 
-    def decode_html_entities(self, s):
-        s = s.strip()
-        s = s.replace('&lt;', '<')
-        s = s.replace('&gt;', '>')
-        s = s.replace('&nbsp;', ' ')
-        # Must do ampersand last
-        s = s.replace('&amp;', '&')
-        return s
+    # discoveryplus.in doesn't have EPG so we use channel name as show name
+    def get_epg_in(self):
+        from collections import defaultdict
+        epg = defaultdict(list)
 
-    def webvtt_to_srt(self, subdata):
-        # Modified from:
-        # https://github.com/spaam/svtplay-dl/blob/master/lib/svtplay_dl/subtitle/__init__.py
-        ssubdata = StringIO(subdata)
-        srt = ""
-        subtract = False
-        number_b = 1
-        number = 0
-        block = 0
-        subnr = False
+        today = datetime.utcnow().date()
+        start = datetime(today.year, today.month, today.day).astimezone()
+        end = start + timedelta(1)
 
-        for i in ssubdata.readlines():
-            match = re.search(r"^[\r\n]+", i)
-            match2 = re.search(r"([\d:\.]+ --> [\d:\.]+)", i)
-            match3 = re.search(r"^(\d+)\s", i)
-            if i[:6] == "WEBVTT":
-                continue
-            elif "X-TIMESTAMP" in i:
-                continue
-            elif match and number_b > 1:
-                block = 0
-                srt += "\n"
-            elif match2:
-                if not subnr:
-                    srt += "%s\n" % number_b
-                matchx = re.search(r"(?P<h1>\d+):(?P<m1>\d+):(?P<s1>[\d\.]+) --> (?P<h2>\d+):(?P<m2>\d+):(?P<s2>[\d\.]+)", i)
-                if matchx:
-                    hour1 = int(matchx.group("h1"))
-                    hour2 = int(matchx.group("h2"))
-                    if int(number) == 1:
-                        if hour1 > 9:
-                            subtract = True
-                    if subtract:
-                        hour1 -= 10
-                        hour2 -= 10
-                else:
-                    matchx = re.search(r"(?P<m1>\d+):(?P<s1>[\d\.]+) --> (?P<m2>\d+):(?P<s2>[\d\.]+)", i)
-                    hour1 = 0
-                    hour2 = 0
-                time = "{:02d}:{}:{} --> {:02d}:{}:{}\n".format(
-                    hour1, matchx.group("m1"), matchx.group("s1").replace(".", ","), hour2, matchx.group("m2"), matchx.group("s2").replace(".", ",")
-                )
-                srt += time
-                block = 1
-                subnr = False
-                number_b += 1
-
-            elif match3 and block == 0:
-                number = match3.group(1)
-                srt += "%s\n" % number
-                subnr = True
-            else:
-                sub = re.sub("<[^>]*>", "", i)
-                srt += sub.strip()
-                srt += "\n"
-
-        srt = self.decode_html_entities(srt)
-        return srt
-
-    # This is used for Inputstream Adaptive versions below 2.4.6 (Kodi 18) and versions below 2.6.1 (Kodi 19)
-    def get_subtitles(self, video_url, video_id):
-        playlist = self.make_request(video_url, 'get', headers=self.site_headers, text=True)
-        self.log('Video playlist url: %s' % video_url)
-
-        line1 = urljoin(video_url, urlparse(video_url).path)
-        url = line1.replace("playlist.m3u8", "")
-
-        paths = []
-        for line in playlist.splitlines():
-            if "#EXT-X-MEDIA:TYPE=SUBTITLES" in line:
-                line2 = line.split(',')[7] #URI line from file playlist.m3u8
-                #URI="exp=1537779948~acl=%2f*~data=hdntl~hmac=f62bc6753397ac3837b7e173b688e7bd45b2d79c12c40d2adeab3b67bc74f839/1155354603-prog_index.m3u8?version_hash=299f6771"
-
-                line3 = line2.split('"')[1] #URI content
-                # Response option 1: exp=1537735286~acl=%2f*~data=hdntl~hmac=de7dacddbe65cc734725c836cc0ffd0f1c0b069bde3999fa084141112dc9f57f/1155354603-prog_index.m3u8?hdntl=exp=1537735286~acl=/*~data=hdntl~hmac=de7dacddbe65cc734725c836cc0ffd0f1c0b069bde3999fa084141112dc9f57f&version_hash=5a73e2ce
-                # Response option 2: 1155354603-prog_index.m3u8?version_hash=299f6771
-                line4 = line3.replace("prog_index.m3u8", "0.vtt") # Change prog_index.m3u8 -> 0.vtt to get subtitle file url
-                # Output: exp=1537779948~acl=%2f*~data=hdntl~hmac=f62bc6753397ac3837b7e173b688e7bd45b2d79c12c40d2adeab3b67bc74f839/1155354603-0.vtt?version_hash=299f6771
-                subtitle_url = url + line4 # Subtitle file full address
-                self.log('Full subtitle url: %s' % subtitle_url)
-
-                lang_code = line.split(',')[3].split('"')[1] # Subtitle language, returns fi, sv, da or no
-
-                # Save subtitle files to addon temp folder
-                path = os.path.join(self.tempdir, '{0}.{1}.srt'.format(video_id, lang_code))
-                # Don't download subtitles if files already exist in addon temp folder
-                if os.path.exists(path) is False:
-                    with open(path, 'w', encoding='utf-8') as subfile:
-                        # Download subtitles
-                        sub_str = self.make_request(subtitle_url, 'get')
-
-                        # Convert WEBVTT subtitles to SRT subtitles
-                        sub_str = sub_str.decode('utf-8', 'ignore')
-                        sub_str = self.webvtt_to_srt(sub_str)
-
-                        subfile.write(sub_str)
-                paths.append(path)
-
-        return paths
+        for channel in self.get_channels_in():
+            epg[channel['id']].append(dict(
+                start=start.isoformat(),
+                stop=end.isoformat(),
+                title=channel['name']
+            ))
+        return epg
 
     def get_stream(self, video_id, video_type):
         stream = {}
 
-        params = {'usePreAuth': 'true'}
+        screenHeight = xbmcgui.getScreenHeight()
+        screenWidth = xbmcgui.getScreenWidth()
 
+        if self.us_uhd:
+            hwDecoding = ['H264','H265']
+            platform = 'firetv'
+        else:
+            hwDecoding = []
+            platform = 'desktop'
+
+        params = {'usePreAuth': 'true'}
         # discoveryplus.com (US)
         if self.locale_suffix == 'us':
             if video_type == 'channel':
@@ -785,9 +805,25 @@ class Dplay(object):
                 url = '{api_url}/playback/v3/channelPlaybackInfo'.format(api_url=self.api_url)
 
             else:
-                jsonPayload = {'deviceInfo': {'adBlocker': 'true'}, 'videoId': video_id,
-                               'wisteriaProperties': {'product': 'dplus_us'}}
-
+                jsonPayload = {
+                    'deviceInfo': {
+                        'adBlocker': 'true',
+                        'hwDecodingCapabilities': hwDecoding,
+                        'screen':{
+                            'width':screenWidth,
+                            'height':screenHeight
+                        },
+                        'player':{
+                            'width':screenWidth,
+                            'height':screenHeight
+                        }
+                    },
+                    'videoId': video_id,
+                    'wisteriaProperties':{
+                        'platform': platform,
+                        'product': 'dplus_us'
+                    }
+                }
                 url = '{api_url}/playback/v3/videoPlaybackInfo'.format(api_url=self.api_url)
 
             data_dict = json.loads(self.make_request(url, 'post', params=params, headers=self.site_headers, payload=json.dumps(jsonPayload)))['data']
