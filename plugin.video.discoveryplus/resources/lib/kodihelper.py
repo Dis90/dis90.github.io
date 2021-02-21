@@ -35,7 +35,7 @@ class KodiHelper(object):
         if not xbmcvfs.exists(self.addon_profile):
             xbmcvfs.mkdir(self.addon_profile)
         self.d = Dplay(self.addon_profile, self.get_setting('site'), self.get_setting('locale'), self.logging_prefix,
-                       self.get_setting('numresults'), self.get_setting('cookiestxt'), self.get_setting('cookiestxt_file'), self.get_setting('sync_playback'))
+                       self.get_setting('numresults'), self.get_setting('cookiestxt'), self.get_setting('cookiestxt_file'), self.get_setting('sync_playback'), self.get_setting('us_uhd'))
 
     def get_addon(self):
         """Returns a fresh addon instance."""
@@ -54,10 +54,6 @@ class KodiHelper(object):
     def get_kodi_version(self):
         version = xbmc.getInfoLabel('System.BuildVersion')
         return version.split('.')[0]
-
-    def get_ia_version(self):
-        version = xbmc.getInfoLabel('System.AddonVersion(inputstream.adaptive)')
-        return version.replace('.', '')
 
     def set_setting(self, key, value):
         return self.get_addon().setSetting(key, value)
@@ -121,11 +117,11 @@ class KodiHelper(object):
         return True
 
     def set_locale(self, locale=None):
-        countries = ['fi_FI', 'sv_SE', 'da_DK', 'nb_NO', 'nl_NL', 'es_ES', 'it_IT', 'en_GB', 'en_US']
+        countries = ['fi_FI', 'sv_SE', 'da_DK', 'nb_NO', 'nl_NL', 'es_ES', 'it_IT', 'en_GB', 'en_US', 'in_IN']
         if not locale:
             options = ['discoveryplus.fi', 'discoveryplus.se', 'discoveryplus.dk', 'discoveryplus.no',
                        'discoveryplus.nl', 'discoveryplus.es', 'discoveryplus.it', 'discoveryplus.co.uk',
-                       'discoveryplus.com']
+                       'discoveryplus.com', 'discoveryplus.in']
             selected_site = self.dialog('select', self.language(30013), options=options)
             if selected_site is None:
                 selected_site = 0  # default to .fi
@@ -252,6 +248,7 @@ class KodiHelper(object):
     # End of Up next integration
 
     def play_item(self, video_id, video_type):
+        useIsa = self.get_setting('use_isa')
         try:
             stream = self.d.get_stream(video_id, video_type)
 
@@ -276,23 +273,16 @@ class KodiHelper(object):
             else:
                 playitem = xbmcgui.ListItem(path=stream['hls_url'])
 
-                # Kodi 19 Matrix or higher
-                if self.get_kodi_version() >= '19':
-                    playitem.setProperty('inputstream', 'inputstream.adaptive')
-                    # Inputstream Adaptive 2.6.1 added support for WEBVTT subtitles over HLS (Kodi 19)
-                    # Use addons WEBVTT to SRT converter for older IA versions
-                    if self.get_ia_version() < '261':
-                        playitem.setSubtitles(self.d.get_subtitles(stream['hls_url'], video_id))
-                # Kodi 18 Leia
-                else:
-                    playitem.setProperty('inputstreamaddon', 'inputstream.adaptive')
-                    # Inputstream Adaptive 2.4.6 added support for WEBVTT subtitles over HLS (Kodi 18)
-                    # Use addons WEBVTT to SRT converter for older IA versions
-                    if self.get_ia_version() < '246':
-                        playitem.setSubtitles(self.d.get_subtitles(stream['hls_url'], video_id))
+                if useIsa:
+                    # Kodi 19 Matrix or higher
+                    if self.get_kodi_version() >= '19':
+                        playitem.setProperty('inputstream', 'inputstream.adaptive')
+                    # Kodi 18 Leia
+                    else:
+                        playitem.setProperty('inputstreamaddon', 'inputstream.adaptive')
 
-                # Have to use hls for shows because mpd encryption type 'clearkey' is not supported by inputstream.adaptive
-                playitem.setProperty('inputstream.adaptive.manifest_type', 'hls')
+                    # Have to use hls for shows because mpd encryption type 'clearkey' is not supported by inputstream.adaptive
+                    playitem.setProperty('inputstream.adaptive.manifest_type', 'hls')
 
             # Get metadata to use for Up next only in episodes and clips (can also be aired sport events)
             if video_type == 'EPISODE' or video_type == 'CLIP':
@@ -336,7 +326,7 @@ class KodiHelper(object):
 
                 playitem.setArt(art)
 
-                player = DplayPlayer()
+                player = DplusPlayer()
                 player.resolve(playitem)
 
                 player.video_id = video_id
@@ -358,8 +348,7 @@ class KodiHelper(object):
         except self.d.DplayError as error:
             self.dialog('ok', self.language(30006), error.value)
 
-
-class DplayPlayer(xbmc.Player):
+class DplusPlayer(xbmc.Player):
     def __init__(self):
         base_url = sys.argv[0]
         handle = int(sys.argv[1])
@@ -474,7 +463,7 @@ class DplayPlayer(xbmc.Player):
             # Get new token before updating playback progress
             self.helper.d.get_token()
 
-            # Dplay wants POST before PUT
+            # discovery+ wants POST before PUT
             self.helper.d.update_playback_progress('post', self.video_id, video_totaltime_msec)
             self.helper.d.update_playback_progress('put', self.video_id, video_totaltime_msec)
             return xbmc.executebuiltin('Container.Update')
@@ -495,7 +484,7 @@ class DplayPlayer(xbmc.Player):
             # Get new token before updating playback progress
             self.helper.d.get_token()
 
-            # Dplay wants POST before PUT
+            # discovery+ wants POST before PUT
             self.helper.d.update_playback_progress('post', self.video_id, video_lastpos_msec)
             self.helper.d.update_playback_progress('put', self.video_id, video_lastpos_msec)
 
