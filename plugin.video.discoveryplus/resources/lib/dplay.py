@@ -123,10 +123,10 @@ class Dplay(object):
             return req.content
 
         except requests.exceptions.ConnectionError as error:
-            self.log('Connection Error: - %s' % error.message)
+            self.log('Connection Error: - %s' % error)
             raise
         except requests.exceptions.RequestException as error:
-            self.log('Error: - %s' % error.value)
+            self.log('Error: - %s' % error)
             raise
 
     def raise_dplay_error(self, response):
@@ -845,9 +845,10 @@ class Dplay(object):
         else:
             stream['hls_url'] = data_dict['attributes']['streaming']['hls']['url']
             stream['mpd_url'] = data_dict['attributes']['streaming']['dash']['url']
-            if data_dict['attributes']['protection']['schemes'].get('widevine'):
-                stream['license_url'] = data_dict['attributes']['protection']['schemes']['widevine']['licenseUrl']
-                stream['drm_token'] = data_dict['attributes']['protection']['drmToken']
+            if data_dict['attributes']['protection']['drmEnabled']:
+                if data_dict['attributes']['protection']['schemes'].get('widevine'):
+                    stream['license_url'] = data_dict['attributes']['protection']['schemes']['widevine']['licenseUrl']
+                    stream['drm_token'] = data_dict['attributes']['protection']['drmToken']
             stream['drm_enabled'] = data_dict['attributes']['protection']['drmEnabled']
 
         return stream
