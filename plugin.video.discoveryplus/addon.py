@@ -912,6 +912,7 @@ def list_page(page_path):
 
                                         list_collection_items(collection_id=collection['id'], page_path=page_path)
 
+                                    # Probably not in use anymore 15.4.2021
                                     # Channel pages with only one pageItem
                                     # Content-hero (used in channels page where watch button is visible)
                                     # collection['relationships']['items']['data'][0] = channel name and livestream
@@ -1155,6 +1156,7 @@ def list_page(page_path):
                                                                             info=channel_info, content='videos')
 
                                         # Homepage, Channel -> subcategories (New videos, Shows).
+                                        # Also Categories -> Adventure -> subcategories (Alle Programma's) in d+ NL 15.4.2021
                                         if collection['attributes']['component']['id'] == 'content-grid' or \
                                                 collection['attributes']['component']['id'] == 'content-rail':
                                             # Hide empty grids (example upcoming events when there is no upcoming events).
@@ -1166,19 +1168,14 @@ def list_page(page_path):
                                                         'collection_id': collection['id']
                                                     }
 
-                                                    if collection['attributes'].get('title'):
-                                                        title = collection['attributes']['title']
-                                                    else:
-                                                        title = collection['attributes']['name']
-
-                                                    helper.add_item(title, params,
+                                                    helper.add_item(collection['attributes']['title'], params,
                                                                     content='videos',
                                                                     folder_name=page['attributes'].get(
                                                                         'pageMetadataTitle'))
 
                                                 # Collection doesn't have title = categories
                                                 else:
-                                                    # List categories (Reality, Comedy etc)
+                                                    # List categories (Reality, Comedy etc) used at least in d+ co.uk
                                                     for c in collection['relationships']['items']['data']:
                                                         for collectionItem in collectionItems:
                                                             if c['id'] == collectionItem['id']:
@@ -1328,7 +1325,6 @@ def list_page(page_path):
                                                         # Promotion grids (grids with background image)
                                                         if collectionItem['relationships'].get('show') or \
                                                                 collectionItem['relationships'].get('video') or \
-                                                                collectionItem['relationships'].get('image') or \
                                                                 collectionItem['relationships'].get('link'):
                                                             if len(collection['relationships']['items'][
                                                                        'data']) > 1:
