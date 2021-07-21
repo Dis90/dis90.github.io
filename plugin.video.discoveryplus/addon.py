@@ -1240,7 +1240,9 @@ def list_page(page_path):
                                                                         'pageMetadataTitle'))
 
                                                 # Collection doesn't have title = list content
-                                                else:
+                                                # Some collections have empty title. Most likely promotion category
+                                                # don't list them example Homepage -> manual-marketing-grid in .es 21.7.2021.
+                                                elif collection['attributes'].get('title') is not '':
                                                     list_collection(collection_id=collection['attributes']['alias'], page=1)
 
                                         # List series season grid
@@ -2313,6 +2315,19 @@ def list_collection(collection_id, page, mandatoryParams=None, parameter=None):
                                             if taxonomyNode['id'] == video_genre['id']:
                                                 g.append(taxonomyNode['attributes']['name'])
 
+                                # Sport example Tennis
+                                if video['relationships'].get('txSports'):
+                                    for taxonomyNode in taxonomyNodes:
+                                        if taxonomyNode['id'] == video['relationships']['txSports']['data'][0]['id']:
+                                            sport = taxonomyNode['attributes']['name']
+                                # Olympics sport
+                                elif video['relationships'].get('txOlympicssport'):
+                                    for taxonomyNode in taxonomyNodes:
+                                        if taxonomyNode['id'] == video['relationships']['txOlympicssport']['data'][0]['id']:
+                                            sport = taxonomyNode['attributes']['name']
+                                else:
+                                    sport = None
+
                                 if video['relationships'].get('primaryChannel'):
                                     for channel in channels:
                                         if channel['id'] == video['relationships']['primaryChannel']['data']['id']:
@@ -2371,12 +2386,14 @@ def list_collection(collection_id, page, mandatoryParams=None, parameter=None):
                                         else:
                                             plot = '[discovery+]'
 
+                                video_title = video['attributes'].get('name').lstrip()
+                                # Sport
+                                if sport:
+                                    video_title = sport + ': ' + video_title
                                 # secondaryTitle used in sport events
                                 if video['attributes'].get('secondaryTitle'):
-                                    video_title = video['attributes'].get('name').lstrip() + ' - ' + \
+                                    video_title = video_title + ' - ' + \
                                                   video['attributes']['secondaryTitle'].lstrip()
-                                else:
-                                    video_title = video['attributes'].get('name').lstrip()
 
                                 episode_info = {
                                     'mediatype': 'episode',
