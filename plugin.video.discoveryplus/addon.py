@@ -2,9 +2,9 @@
 
 import sys
 
-try: # Python 3
+try:  # Python 3
     from urllib.parse import parse_qsl
-except ImportError: # Python 2
+except ImportError:  # Python 2
     from urlparse import parse_qsl
 
 from resources.lib.kodihelper import KodiHelper
@@ -12,6 +12,7 @@ from resources.lib.kodihelper import KodiHelper
 base_url = sys.argv[0]
 handle = int(sys.argv[1])
 helper = KodiHelper(base_url, handle)
+
 
 def list_pages():
     # discoveryplus.com all menu items will come from helper.d.get_menu()
@@ -149,6 +150,7 @@ def list_pages():
 
     helper.eod()
 
+
 # discoveryplus.com (US)
 def list_page_us(page_path, search_query=None):
     if search_query:
@@ -179,7 +181,6 @@ def list_page_us(page_path, search_query=None):
 
                                     # if content-grid after pageItem -> list content (My List)
                                     if collection['attributes']['component']['id'] == 'content-grid':
-
                                         list_collection(collection_id=collection['id'], page=1)
 
                                     # discoveryplus.com (US) search result categories (Shows, Episodes, Specials, Collections, Extras)
@@ -204,7 +205,8 @@ def list_page_us(page_path, search_query=None):
                                                                         # pf[query]=mythbusters
                                                                     }
 
-                                                                    folder_name = helper.language(30007) + ' / ' + search_query
+                                                                    folder_name = helper.language(
+                                                                        30007) + ' / ' + search_query
 
                                                                     helper.add_item(c2['attributes']['title'],
                                                                                     params,
@@ -241,7 +243,8 @@ def list_page_us(page_path, search_query=None):
                                             else:
                                                 params = {
                                                     'action': 'list_collection',
-                                                    'collection_id': link['relationships']['linkedContent']['data']['id']
+                                                    'collection_id': link['relationships']['linkedContent']['data'][
+                                                        'id']
                                                 }
 
                                                 if link['relationships'].get('images'):
@@ -271,7 +274,9 @@ def list_page_us(page_path, search_query=None):
                                                         if collectionItem['relationships'].get('taxonomyNode'):
 
                                                             for taxonomyNode in taxonomyNodes:
-                                                                if taxonomyNode['id'] == collectionItem['relationships']['taxonomyNode']['data']['id']:
+                                                                if taxonomyNode['id'] == \
+                                                                        collectionItem['relationships']['taxonomyNode'][
+                                                                            'data']['id']:
                                                                     # Find page path from routes
                                                                     for route in routes:
                                                                         if route['id'] == \
@@ -280,15 +285,16 @@ def list_page_us(page_path, search_query=None):
                                                                                     'data'][0]['id']:
                                                                             next_page_path = route['attributes']['url']
 
-
                                                                     params = {
                                                                         'action': 'list_page',
                                                                         'page_path': next_page_path
                                                                     }
 
-                                                                    helper.add_item(taxonomyNode['attributes']['name'], params,
-                                                                            content='videos',
-                                                                            folder_name=page['attributes'].get('pageMetadataTitle'))
+                                                                    helper.add_item(taxonomyNode['attributes']['name'],
+                                                                                    params,
+                                                                                    content='videos',
+                                                                                    folder_name=page['attributes'].get(
+                                                                                        'pageMetadataTitle'))
 
                     # Some pages doesn't have component
                     # So we use this method to all non tabbed-page
@@ -301,7 +307,6 @@ def list_page_us(page_path, search_query=None):
 
                                         # PageItems have only one collection
                                         if pageItem['relationships']['collection']['data']['id'] == collection['id']:
-
 
                                             # Hide channel live streams because those aren't actually available
                                             # Uncomment this when available
@@ -377,12 +382,12 @@ def list_page_us(page_path, search_query=None):
                                             #                                         folder_name=collection[
                                             #                                             'attributes'].get('title'))
 
-
                                             # Home -> For You -> categories
                                             if collection['attributes']['component']['id'] == 'content-grid':
                                                 # Hide empty grids
                                                 if collection.get('relationships'):
-                                                    if collection['attributes'].get('title') or collection['attributes']['alias'] == 'networks':
+                                                    if collection['attributes'].get('title') or \
+                                                            collection['attributes']['alias'] == 'networks':
                                                         params = {
                                                             'action': 'list_collection',
                                                             'collection_id': collection['id']
@@ -394,9 +399,9 @@ def list_page_us(page_path, search_query=None):
                                                             title = collection['attributes']['name']
 
                                                         helper.add_item(title, params,
-                                                                    content='videos',
-                                                                    folder_name=page['attributes'].get(
-                                                                        'pageMetadataTitle'))
+                                                                        content='videos',
+                                                                        folder_name=page['attributes'].get(
+                                                                            'pageMetadataTitle'))
 
                                             # Episodes, Extras, About the Show, You May Also Like
                                             if collection['attributes']['component']['id'] == 'tabbed-component':
@@ -404,9 +409,13 @@ def list_page_us(page_path, search_query=None):
                                                     for collectionItem in collectionItems:
                                                         if c['id'] == collectionItem['id']:
                                                             for c2 in collections:
-                                                                if collectionItem['relationships']['collection']['data']['id'] == c2['id']:
+                                                                if \
+                                                                        collectionItem['relationships']['collection'][
+                                                                            'data'][
+                                                                            'id'] == c2['id']:
                                                                     # Episodes and Extras
-                                                                    if c2['attributes']['component']['id'] == 'tabbed-content':
+                                                                    if c2['attributes']['component'][
+                                                                        'id'] == 'tabbed-content':
                                                                         # Hide empty Episodes and Extras folders
                                                                         if c2.get('relationships'):
                                                                             # Check if component is season list and check if there's season listing
@@ -444,7 +453,10 @@ def list_page_us(page_path, search_query=None):
 
                                                                     # You May Also Like
                                                                     # Channel category and Extras on shows that doesn't have episodes
-                                                                    if c2['attributes']['component']['id'] == 'content-grid':
+                                                                    # Have to use list_collection_items instead list_collection
+                                                                    # because of generic collection_id
+                                                                    if c2['attributes']['component'][
+                                                                        'id'] == 'content-grid':
                                                                         params = {
                                                                             'action': 'list_collection_items',
                                                                             'page_path': page_path,
@@ -498,21 +510,24 @@ def list_page_us(page_path, search_query=None):
                                                                                         'images'):
                                                                                     for image in images:
                                                                                         for channel_images in \
-                                                                                        channel['relationships'][
-                                                                                            'images']['data']:
+                                                                                                channel[
+                                                                                                    'relationships'][
+                                                                                                    'images']['data']:
                                                                                             if image['id'] == \
                                                                                                     channel_images[
                                                                                                         'id']:
                                                                                                 if image['attributes'][
                                                                                                     'kind'] == 'logo':
                                                                                                     channel_logo = \
-                                                                                                    image['attributes'][
-                                                                                                        'src']
+                                                                                                        image[
+                                                                                                            'attributes'][
+                                                                                                            'src']
                                                                                                 if image['attributes'][
                                                                                                     'kind'] == 'default':
                                                                                                     fanart_image = \
-                                                                                                    image['attributes'][
-                                                                                                        'src']
+                                                                                                        image[
+                                                                                                            'attributes'][
+                                                                                                            'src']
 
                                                                                 if channel_logo:
                                                                                     thumb_image = channel_logo
@@ -535,6 +550,7 @@ def list_page_us(page_path, search_query=None):
                                                                                         'attributes'].get('title'))
 
     helper.eod()
+
 
 # discoveryplus.in
 def list_page_in(page_path):
@@ -584,23 +600,30 @@ def list_page_in(page_path):
 
                                     # if content-grid after pageItem -> list content
                                     if collection['attributes']['component']['id'] == 'content-grid':
-
                                         list_collection(collection_id=collection['id'], page=1)
 
-                                    if collection['attributes']['component']['id'] == 'mindblown-composite' or collection['attributes']['component']['id'] == 'tab-bar':
+                                    if collection['attributes']['component']['id'] == 'mindblown-composite' or \
+                                            collection['attributes']['component']['id'] == 'tab-bar':
                                         for collection_relationship in collection['relationships']['items']['data']:
                                             for collectionItem in collectionItems:
                                                 if collection_relationship['id'] == collectionItem['id']:
                                                     for c2 in collections:
-                                                        if c2['id'] == collectionItem['relationships']['collection']['data']['id']:
+                                                        if c2['id'] == \
+                                                                collectionItem['relationships']['collection']['data'][
+                                                                    'id']:
 
-                                                            if c2['attributes']['component']['id']  == 'mindblown-videos-list':
+                                                            if c2['attributes']['component'][
+                                                                'id'] == 'mindblown-videos-list':
                                                                 list_collection(collection_id=c2['id'], page=1)
 
                                                             # Favorites (Episodes, Shorts, Shows) and Watchlist (Episodes, Shorts)
-                                                            if c2['attributes']['component']['id']  == 'tab-bar-item':
-                                                                if c2['attributes']['component'].get('customAttributes'):
-                                                                    contentType = c2['attributes']['component']['customAttributes']['contentType']
+                                                            if c2['attributes']['component']['id'] == 'tab-bar-item':
+                                                                if c2['attributes']['component'].get(
+                                                                        'customAttributes'):
+                                                                    contentType = \
+                                                                        c2['attributes']['component'][
+                                                                            'customAttributes'][
+                                                                            'contentType']
                                                                     if contentType == 'watchlistVideos':
                                                                         params = {
                                                                             'action': 'list_favorite_watchlist_videos',
@@ -652,11 +675,12 @@ def list_page_in(page_path):
 
                                         if collection['attributes']['component']['id'] == 'promoted-shorts-list':
                                             if collection.get('relationships'):
-                                                if collection['attributes'].get('title'):
+                                                if collection['attributes'].get('title') or \
+                                                        collection['attributes'].get('name'):
+
                                                     params = {
-                                                        'action': 'list_collection_items',
-                                                        'page_path': page_path,
-                                                        'collection_id': collection['id']
+                                                        'action': 'list_collection',
+                                                        'collection_id': collection['attributes']['alias']
                                                     }
 
                                                     if collection['attributes'].get('title'):
@@ -695,7 +719,7 @@ def list_page_in(page_path):
                                                                                                 'linkedContentRoutes'][
                                                                                                 'data'][0]['id']:
                                                                                         next_page_path = \
-                                                                                        route['attributes']['url']
+                                                                                            route['attributes']['url']
 
                                                                                 if link['relationships'].get('images'):
                                                                                     for image in images:
@@ -720,7 +744,6 @@ def list_page_in(page_path):
                                                                                 'description')
                                                                         }
 
-
                                                                         category_art = {
                                                                             'fanart': thumb_image,
                                                                             'thumb': thumb_image
@@ -739,7 +762,7 @@ def list_page_in(page_path):
                                         if collection['attributes']['component']['id'] == 'show-container':
                                             list_collection_items(collection_id=collection['id'], page_path=page_path)
 
-                                        # Channels page category links and 'Explore Shows and Full Episodes' -> BBC
+                                        # Channels page category links (example Discovery -> Discovery Shows) and 'Explore Shows and Full Episodes' -> BBC
                                         if collection['attributes']['component']['id'] == 'content-grid':
                                             # Hide empty grids (example upcoming events when there is no upcoming events).
                                             if collection.get('relationships'):
@@ -749,23 +772,21 @@ def list_page_in(page_path):
                                                         'collection_id': collection['id']
                                                     }
 
-                                                    if collection['attributes'].get('title'):
-                                                        title = collection['attributes']['title']
-                                                    else:
-                                                        title = collection['attributes']['name']
-
-                                                    helper.add_item(title, params,
+                                                    helper.add_item(collection['attributes']['title'], params,
                                                                     content='videos',
                                                                     folder_name=page['attributes'].get(
                                                                         'pageMetadataTitle'))
                                                 # Explore Shows and Full Episodes -> BBC
                                                 else:
-                                                    list_collection(collection_id=collection['id'], page=1)
+                                                    list_collection(collection_id=collection['id'],
+                                                                    mandatoryParams=collection['attributes'][
+                                                                        'component'].get('mandatoryParams'), page=1)
 
                                         # Channel livestream
                                         if collection['attributes']['component']['id'] == 'channel-hero-player':
                                             for collectionItem in collectionItems:
-                                                if collection['relationships']['items']['data'][0]['id'] == collectionItem['id']:
+                                                if collection['relationships']['items']['data'][0]['id'] == \
+                                                        collectionItem['id']:
                                                     if collectionItem['relationships'].get('channel'):
 
                                                         # Channel livestream
@@ -845,20 +866,23 @@ def list_page_in(page_path):
                                         # Shorts page categories
                                         if collection['attributes']['component']['id'] == 'all-taxonomies':
                                             for collectionItem in collectionItems:
-                                                for collection_relationship in collection['relationships']['items']['data']:
+                                                for collection_relationship in collection['relationships']['items'][
+                                                    'data']:
                                                     if collectionItem['id'] == collection_relationship['id']:
                                                         if collectionItem['relationships'].get('collection'):
                                                             for c2 in collections:
-                                                                if c2['id'] == collectionItem['relationships']['collection']['data']['id']:
+                                                                if c2['id'] == \
+                                                                        collectionItem['relationships']['collection'][
+                                                                            'data']['id']:
                                                                     if c2.get('relationships'):
                                                                         for c2_relationship in \
-                                                                        c2['relationships']['items']['data']:
+                                                                                c2['relationships']['items']['data']:
                                                                             for collectionItem2 in collectionItems:
                                                                                 if collectionItem2['id'] == \
                                                                                         c2_relationship['id']:
                                                                                     if collectionItem2[
                                                                                         'relationships'].get(
-                                                                                            'taxonomyNode'):
+                                                                                        'taxonomyNode'):
 
                                                                                         for taxonomyNode in taxonomyNodes:
                                                                                             if taxonomyNode['id'] == \
@@ -877,9 +901,9 @@ def list_page_in(page_path):
                                                                                                                 0][
                                                                                                                 'id']:
                                                                                                         next_page_path = \
-                                                                                                        route[
-                                                                                                            'attributes'][
-                                                                                                            'url']
+                                                                                                            route[
+                                                                                                                'attributes'][
+                                                                                                                'url']
 
                                                                                                 params = {
                                                                                                     'action': 'list_page',
@@ -894,6 +918,7 @@ def list_page_in(page_path):
 
     helper.eod()
 
+
 # European countries
 def list_page(page_path):
     page_data = helper.d.get_page(page_path)
@@ -906,8 +931,6 @@ def list_page(page_path):
     shows = list(filter(lambda x: x['type'] == 'show', page_data['included']))
     channels = list(filter(lambda x: x['type'] == 'channel', page_data['included']))
     genres = list(filter(lambda x: x['type'] == 'genre', page_data['included']))
-    links = list(filter(lambda x: x['type'] == 'link', page_data['included']))
-    routes = list(filter(lambda x: x['type'] == 'route', page_data['included']))
 
     if page_data['data']['type'] == 'route':
         for page in pages:
@@ -924,7 +947,7 @@ def list_page(page_path):
                                     if collection['attributes']['component']['id'] == 'content-grid':
                                         list_collection(collection_id=collection['attributes']['alias'], page=1)
 
-                                    # Only in use .co.uk 20.7.2021
+                                    # Example .co.uk (Eurosport) and .se (SVT1) 20.7.2021
                                     # Channel pages with only one pageItem
                                     # Content-hero (used in channels page where watch button is visible)
                                     # collection['relationships']['items']['data'][0] = channel name and livestream
@@ -934,28 +957,11 @@ def list_page(page_path):
                                             for collectionItem in collectionItems:
                                                 if c['id'] == collectionItem['id']:
                                                     if collectionItem['relationships'].get('channel'):
-
-                                                        # Channel livestream
                                                         for channel in channels:
                                                             if \
                                                                     collectionItem['relationships']['channel'][
                                                                         'data'][
                                                                         'id'] == channel['id']:
-                                                                params = {
-                                                                    'action': 'play',
-                                                                    'video_id': channel['id'],
-                                                                    'video_type': 'channel'
-                                                                }
-
-                                                                channel_info = {
-                                                                    'mediatype': 'video',
-                                                                    'title': helper.language(30014) + ' ' +
-                                                                             channel[
-                                                                                 'attributes'].get('name'),
-                                                                    'plot': channel['attributes'].get(
-                                                                        'description'),
-                                                                    'playcount': '0'
-                                                                }
 
                                                                 channel_logo = None
                                                                 fanart_image = None
@@ -985,15 +991,33 @@ def list_page(page_path):
                                                                     'thumb': thumb_image
                                                                 }
 
-                                                                helper.add_item(
-                                                                    helper.language(30014) + ' ' + channel[
-                                                                        'attributes'].get('name'),
-                                                                    params=params,
-                                                                    art=channel_art, info=channel_info,
-                                                                    content='videos',
-                                                                    playable=True)
+                                                                # Show channel livestream if available
+                                                                if channel['attributes']['hasLiveStream']:
+                                                                    params = {
+                                                                        'action': 'play',
+                                                                        'video_id': channel['id'],
+                                                                        'video_type': 'channel'
+                                                                    }
 
-                                                                # List channel category
+                                                                    channel_info = {
+                                                                        'mediatype': 'video',
+                                                                        'title': helper.language(30014) + ' ' +
+                                                                                 channel[
+                                                                                     'attributes'].get('name'),
+                                                                        'plot': channel['attributes'].get(
+                                                                            'description'),
+                                                                        'playcount': '0'
+                                                                    }
+
+                                                                    helper.add_item(
+                                                                        helper.language(30014) + ' ' + channel[
+                                                                            'attributes'].get('name'),
+                                                                        params=params,
+                                                                        art=channel_art, info=channel_info,
+                                                                        content='videos',
+                                                                        playable=True)
+
+                                                                # List channel category if available
                                                                 if len(collection['relationships']['items'][
                                                                            'data']) > 1:
                                                                     for collectionItem2 in collectionItems:
@@ -1003,30 +1027,40 @@ def list_page(page_path):
                                                                                     'items']['data'][1][
                                                                                     'id'] == collectionItem2[
                                                                                     'id']:
-                                                                            collection_id = \
-                                                                                collectionItem2[
+                                                                            for c2 in collections:
+                                                                                if collectionItem2[
                                                                                     'relationships'][
-                                                                                    'collection']['data']['id']
+                                                                                    'collection']['data']['id'] == c2[
+                                                                                    'id']:
+                                                                                    channel_info = {
+                                                                                        'title': channel[
+                                                                                            'attributes'].get(
+                                                                                            'name'),
+                                                                                        'plot': channel[
+                                                                                            'attributes'].get(
+                                                                                            'description')
+                                                                                    }
 
-                                                                    channel_info = {
-                                                                        'title': channel['attributes'].get(
-                                                                            'name'),
-                                                                        'plot': channel['attributes'].get(
-                                                                            'description')
-                                                                    }
+                                                                                    params = {
+                                                                                        'action': 'list_collection',
+                                                                                        'collection_id':
+                                                                                            c2['attributes']['alias'],
+                                                                                        'mandatoryParams':
+                                                                                            c2['attributes'][
+                                                                                                'component'].get(
+                                                                                                'mandatoryParams')
+                                                                                        # pf[channel.id]=223
+                                                                                    }
 
-                                                                    params = {
-                                                                        'action': 'list_collection_items',
-                                                                        'page_path': page_path,
-                                                                        'collection_id': collection_id
-                                                                    }
+                                                                                    helper.add_item(
+                                                                                        channel['attributes'].get(
+                                                                                            'name'),
+                                                                                        params=params, art=channel_art,
+                                                                                        info=channel_info,
+                                                                                        content='videos')
 
-                                                                    helper.add_item(
-                                                                        channel['attributes'].get('name'),
-                                                                        params=params, art=channel_art,
-                                                                        info=channel_info, content='videos')
-
-                                    # Categories -> Food -> (Popular, All) category listing in some European countries (example .dk, .no) 20.7.2021
+                                    # Categories -> Food -> (Popular, All) category listing in some European countries
+                                    # (example .dk, .no) 20.7.2021
                                     if collection['attributes']['component']['id'] == 'generic-hero':
                                         for c in collection['relationships']['items']['data']:
                                             for collectionItem in collectionItems:
@@ -1036,12 +1070,14 @@ def list_page(page_path):
                                                         if collectionItem['relationships'].get('collection'):
                                                             if collectionItem['relationships']['collection']['data'][
                                                                 'id'] == c2['id']:
-                                                                if c2['attributes']['component']['id'] == 'content-grid':
+                                                                if c2['attributes']['component'][
+                                                                    'id'] == 'content-grid':
                                                                     # Currently there's no categories 20.7.2021
+                                                                    # It is possible that this doesn't work.
+                                                                    # If so then use list_collection_items
                                                                     if c2['attributes'].get('title'):
                                                                         params = {
-                                                                            'action': 'list_collection_items',
-                                                                            'page_path': page_path,
+                                                                            'action': 'list_collection',
                                                                             'collection_id': c2['id']
                                                                         }
 
@@ -1069,35 +1105,20 @@ def list_page(page_path):
                                     if pageItem['relationships']['collection']['data']['id'] == collection['id']:
 
                                         # Content-hero (used in channels page where watch button is visible)
+                                        # Generic-hero (used in channels page which doesn't have livestream)
                                         # collection['relationships']['items']['data'][0] = channel name and livestream
                                         # collection['relationships']['items']['data'][1] = channel category items
-                                        if collection['attributes']['component']['id'] == 'content-hero':
+                                        if collection['attributes']['component']['id'] == 'content-hero' or \
+                                                collection['attributes']['component']['id'] == 'generic-hero':
                                             for c in collection['relationships']['items']['data']:
                                                 for collectionItem in collectionItems:
                                                     if c['id'] == collectionItem['id']:
                                                         if collectionItem['relationships'].get('channel'):
-
-                                                            # Channel livestream
                                                             for channel in channels:
                                                                 if \
                                                                         collectionItem['relationships']['channel'][
                                                                             'data'][
                                                                             'id'] == channel['id']:
-                                                                    params = {
-                                                                        'action': 'play',
-                                                                        'video_id': channel['id'],
-                                                                        'video_type': 'channel'
-                                                                    }
-
-                                                                    channel_info = {
-                                                                        'mediatype': 'video',
-                                                                        'title': helper.language(30014) + ' ' +
-                                                                                 channel[
-                                                                                     'attributes'].get('name'),
-                                                                        'plot': channel['attributes'].get(
-                                                                            'description'),
-                                                                        'playcount': '0'
-                                                                    }
 
                                                                     channel_logo = None
                                                                     fanart_image = None
@@ -1127,15 +1148,33 @@ def list_page(page_path):
                                                                         'thumb': thumb_image
                                                                     }
 
-                                                                    helper.add_item(
-                                                                        helper.language(30014) + ' ' + channel[
-                                                                            'attributes'].get('name'),
-                                                                        params=params,
-                                                                        art=channel_art, info=channel_info,
-                                                                        content='videos',
-                                                                        playable=True)
+                                                                    # Show channel livestream if available
+                                                                    if channel['attributes']['hasLiveStream']:
+                                                                        params = {
+                                                                            'action': 'play',
+                                                                            'video_id': channel['id'],
+                                                                            'video_type': 'channel'
+                                                                        }
 
-                                                                    # List channel category
+                                                                        channel_info = {
+                                                                            'mediatype': 'video',
+                                                                            'title': helper.language(30014) + ' ' +
+                                                                                     channel[
+                                                                                         'attributes'].get('name'),
+                                                                            'plot': channel['attributes'].get(
+                                                                                'description'),
+                                                                            'playcount': '0'
+                                                                        }
+
+                                                                        helper.add_item(
+                                                                            helper.language(30014) + ' ' + channel[
+                                                                                'attributes'].get('name'),
+                                                                            params=params,
+                                                                            art=channel_art, info=channel_info,
+                                                                            content='videos',
+                                                                            playable=True)
+
+                                                                    # List channel category if available
                                                                     if len(collection['relationships']['items'][
                                                                                'data']) > 1:
                                                                         for collectionItem2 in collectionItems:
@@ -1145,44 +1184,54 @@ def list_page(page_path):
                                                                                         'items']['data'][1][
                                                                                         'id'] == collectionItem2[
                                                                                         'id']:
-                                                                                collection_id = \
-                                                                                    collectionItem2[
+                                                                                for c2 in collections:
+                                                                                    if collectionItem2[
                                                                                         'relationships'][
-                                                                                        'collection']['data']['id']
+                                                                                        'collection']['data']['id'] == \
+                                                                                            c2['id']:
+                                                                                        channel_info = {
+                                                                                            'title': channel[
+                                                                                                'attributes'].get(
+                                                                                                'name'),
+                                                                                            'plot': channel[
+                                                                                                'attributes'].get(
+                                                                                                'description')
+                                                                                        }
 
-                                                                        channel_info = {
-                                                                            'title': channel['attributes'].get(
-                                                                                'name'),
-                                                                            'plot': channel['attributes'].get(
-                                                                                'description')
-                                                                        }
+                                                                                        params = {
+                                                                                            'action': 'list_collection',
+                                                                                            'collection_id':
+                                                                                                c2['attributes'][
+                                                                                                    'alias'],
+                                                                                            'mandatoryParams':
+                                                                                                c2['attributes'][
+                                                                                                    'component'].get(
+                                                                                                    'mandatoryParams')
+                                                                                            # pf[channel.id]=223
+                                                                                        }
 
-                                                                        # Have to use list_collection_items because collection_id is generic for all content-hero
-                                                                        params = {
-                                                                            'action': 'list_collection_items',
-                                                                            'page_path': page_path,
-                                                                            'collection_id': collection_id
-                                                                        }
-
-                                                                        helper.add_item(
-                                                                            channel['attributes'].get('name'),
-                                                                            params=params, art=channel_art,
-                                                                            info=channel_info, content='videos')
+                                                                                        helper.add_item(
+                                                                                            channel['attributes'].get(
+                                                                                                'name'),
+                                                                                            params=params,
+                                                                                            art=channel_art,
+                                                                                            info=channel_info,
+                                                                                            content='videos')
 
                                         # Homepage, Channel -> subcategories (New videos, Shows).
-                                        # Also Categories -> Adventure -> subcategories (Alle Programma's) in d+ NL 15.4.2021
+                                        # Also Categories -> Adventure -> subcategories (Popular, All)
+                                        # Also Nieuw page in .nl 21.7.2021
                                         if collection['attributes']['component']['id'] == 'content-grid' or \
                                                 collection['attributes']['component']['id'] == 'content-rail':
                                             # Hide empty grids (example upcoming events when there is no upcoming events).
                                             if collection.get('relationships'):
                                                 if collection['attributes'].get('title'):
-                                                    # collection['attributes']['alias'] can also be used as collection_id
                                                     params = {
                                                         'action': 'list_collection',
+                                                        'collection_id': collection['attributes']['alias'],
                                                         'mandatoryParams': collection['attributes'][
                                                             'component'].get(
-                                                            'mandatoryParams'),  # pf[channel.id]=223
-                                                        'collection_id': collection['id']
+                                                            'mandatoryParams')  # pf[channel.id]=223
                                                     }
 
                                                     helper.add_item(collection['attributes']['title'], params,
@@ -1190,69 +1239,9 @@ def list_page(page_path):
                                                                     folder_name=page['attributes'].get(
                                                                         'pageMetadataTitle'))
 
-                                                # Collection doesn't have title = categories
+                                                # Collection doesn't have title = list content
                                                 else:
-                                                    # List categories (Reality, Comedy etc) used at least in d+ co.uk
-                                                    for c in collection['relationships']['items']['data']:
-                                                        for collectionItem in collectionItems:
-                                                            if c['id'] == collectionItem['id']:
-                                                                if collectionItem['relationships'].get('link'):
-                                                                    for link in links:
-                                                                        if collectionItem['relationships']['link'][
-                                                                            'data'][
-                                                                            'id'] == link['id']:
-                                                                            # Find page path from routes
-                                                                            for route in routes:
-                                                                                if route['id'] == \
-                                                                                        link['relationships'][
-                                                                                            'linkedContentRoutes'][
-                                                                                            'data'][0]['id']:
-                                                                                    next_page_path = \
-                                                                                        route['attributes']['url']
-
-                                                                            params = {
-                                                                                'action': 'list_page',
-                                                                                'page_path': next_page_path
-                                                                            }
-
-                                                                            if link['relationships'].get('images'):
-                                                                                for image in images:
-                                                                                    if image['id'] == \
-                                                                                            link['relationships'][
-                                                                                                'images'][
-                                                                                                'data'][0][
-                                                                                                'id']:
-                                                                                        thumb_image = \
-                                                                                            image['attributes']['src']
-                                                                            else:
-                                                                                thumb_image = None
-
-                                                                            category_art = {
-                                                                                'fanart': thumb_image,
-                                                                                'thumb': thumb_image
-                                                                            }
-
-                                                                            # Category titles have stored in different places
-                                                                            if collectionItem['attributes'].get(
-                                                                                    'title'):
-                                                                                link_title = \
-                                                                                    collectionItem['attributes'][
-                                                                                        'title']
-                                                                            elif link['attributes'].get('title'):
-                                                                                link_title = link['attributes'][
-                                                                                    'title']
-                                                                            elif link['attributes'].get('name'):
-                                                                                link_title = link['attributes'][
-                                                                                    'name']
-                                                                            else:
-                                                                                link_title = None
-
-                                                                            helper.add_item(link_title, params,
-                                                                                            content='videos',
-                                                                                            art=category_art,
-                                                                                            folder_name=collection[
-                                                                                                'attributes'].get(
-                                                                                                'title'))
+                                                    list_collection(collection_id=collection['attributes']['alias'], page=1)
 
                                         # List series season grid
                                         if collection['attributes']['component']['id'] == 'tabbed-content':
@@ -1340,10 +1329,12 @@ def list_page(page_path):
 
     helper.eod()
 
+
 def list_collection_items(collection_id, page_path=None):
     page_data = helper.d.get_page(page_path)
 
-    user_favorites = ",".join([str(x['id']) for x in helper.d.get_favorites()['data']['relationships']['favorites']['data']])
+    user_favorites = ",".join(
+        [str(x['id']) for x in helper.d.get_favorites()['data']['relationships']['favorites']['data']])
     user_packages = ",".join([str(x) for x in helper.d.get_user_data()['attributes']['packages']])
 
     pages = list(filter(lambda x: x['type'] == 'page', page_data['included']))
@@ -1360,7 +1351,8 @@ def list_collection_items(collection_id, page_path=None):
     for collection in collections:
         if collection['id'] == collection_id:
             # dicoveryplus.com (US) and discoveryplus.in list series season grid
-            if collection['attributes'].get('component') and collection['attributes']['component']['id'] == 'tabbed-content':
+            if collection['attributes'].get('component') and collection['attributes']['component'][
+                'id'] == 'tabbed-content':
                 # Check if there's any seasons of show or sport event
                 if collection['attributes']['component'].get('filters'):
                     for option in collection['attributes']['component']['filters'][0][
@@ -1441,15 +1433,16 @@ def list_collection_items(collection_id, page_path=None):
                                     }
 
                                     if collection['attributes'].get('title'):
-                                        folder_name = show['attributes'].get('name') + ' / ' + collection['attributes'].get(
+                                        folder_name = show['attributes'].get('name') + ' / ' + collection[
+                                            'attributes'].get(
                                             'title')
                                     else:
                                         folder_name = show['attributes'].get('name')
                         else:
                             info = {}
                             show_art = {}
-                            folder_name = pages[0]['attributes'].get('title') + ' / ' + collection['attributes'].get('title')
-
+                            folder_name = pages[0]['attributes'].get('title') + ' / ' + collection['attributes'].get(
+                                'title')
 
                         helper.add_item(title, params, info=info, art=show_art,
                                         content='seasons', folder_name=folder_name,
@@ -1483,7 +1476,8 @@ def list_collection_items(collection_id, page_path=None):
                                             else:
                                                 title = ''
 
-                                            helper.add_item(title, params, content='videos', folder_name=pages[0]['attributes'].get('title'))
+                                            helper.add_item(title, params, content='videos',
+                                                            folder_name=pages[0]['attributes'].get('title'))
 
                             # List shows
                             if collectionItem['relationships'].get('show'):
@@ -1578,7 +1572,8 @@ def list_collection_items(collection_id, page_path=None):
                                                         menu=menu, folder_name=collection['attributes'].get('title'),
                                                         sort_method='unsorted')
 
-                            # List videos and live sports
+                            # List videos (Show -> Shorts in d+ India) can't use list_collection because of
+                            # missing mandatoryParams
                             if collectionItem['relationships'].get('video'):
                                 for video in videos:
                                     if collectionItem['relationships']['video']['data']['id'] == video['id']:
@@ -1681,7 +1676,8 @@ def list_collection_items(collection_id, page_path=None):
 
                                         # secondaryTitle used in sport events
                                         if video['attributes'].get('secondaryTitle'):
-                                            video_title = video['attributes'].get('name').lstrip() + ' - ' + video['attributes']['secondaryTitle'].lstrip()
+                                            video_title = video['attributes'].get('name').lstrip() + ' - ' + \
+                                                          video['attributes']['secondaryTitle'].lstrip()
                                         else:
                                             video_title = video['attributes'].get('name').lstrip()
 
@@ -1701,7 +1697,8 @@ def list_collection_items(collection_id, page_path=None):
                                         # Watched status from Discovery+
                                         if helper.get_setting('sync_playback'):
                                             if video['attributes']['viewingHistory']['viewed']:
-                                                if video['attributes']['viewingHistory'].get('completed'):  # Watched video
+                                                if video['attributes']['viewingHistory'].get(
+                                                        'completed'):  # Watched video
                                                     episode_info['playcount'] = '1'
                                                     resume = 0
                                                     total = duration
@@ -1732,10 +1729,12 @@ def list_collection_items(collection_id, page_path=None):
 
     helper.eod()
 
+
 def list_search_shows(search_query):
     page_data = helper.d.get_search_shows(search_query=search_query)
 
-    user_favorites = ",".join([str(x['id']) for x in helper.d.get_favorites()['data']['relationships']['favorites']['data']])
+    user_favorites = ",".join(
+        [str(x['id']) for x in helper.d.get_favorites()['data']['relationships']['favorites']['data']])
 
     images = list(filter(lambda x: x['type'] == 'image', page_data['included']))
     genres = list(filter(lambda x: x['type'] == 'genre', page_data['included']))
@@ -1816,6 +1815,7 @@ def list_search_shows(search_query):
                         sort_method='unsorted')
 
     helper.eod()
+
 
 def list_favorites():
     page_data = helper.d.get_favorites()
@@ -1904,6 +1904,7 @@ def list_favorites():
 
     helper.eod()
 
+
 # Favorite shows in discoveryplus.in
 def list_favorites_in():
     page_data = helper.d.get_favorites_in()
@@ -1981,6 +1982,7 @@ def list_favorites_in():
                         sort_method='unsorted')
 
     helper.eod()
+
 
 # Favorite and watchlist videos in discoveryplus.in
 def list_favorite_watchlist_videos_in(videoType=None, playlist=None):
@@ -2141,12 +2143,10 @@ def list_favorite_watchlist_videos_in(videoType=None, playlist=None):
 
     helper.eod()
 
+
 def list_collection(collection_id, page, mandatoryParams=None, parameter=None):
-    if mandatoryParams is None and parameter is None:
-        page_data = helper.d.get_collections(collection_id=collection_id, page=page)
-    else:
-        page_data = helper.d.get_collections(collection_id=collection_id, page=page, mandatoryParams=mandatoryParams,
-                                             parameter=parameter)
+    page_data = helper.d.get_collections(collection_id=collection_id, page=page, mandatoryParams=mandatoryParams,
+                                         parameter=parameter)
 
     user_favorites = ",".join(
         [str(x['id']) for x in helper.d.get_favorites()['data']['relationships']['favorites']['data']])
@@ -2171,7 +2171,7 @@ def list_collection(collection_id, page, mandatoryParams=None, parameter=None):
             for collectionItem in collectionItems:
                 # Match collectionItem id's from collection listing to all collectionItems in data
                 if collection_relationship['id'] == collectionItem['id']:
-                    # List shows, used in discoveryplus.com (US)
+                    # List shows
                     if collectionItem['relationships'].get('show'):
                         for show in shows:
                             if collectionItem['relationships']['show']['data']['id'] == show['id']:
@@ -2373,7 +2373,8 @@ def list_collection(collection_id, page, mandatoryParams=None, parameter=None):
 
                                 # secondaryTitle used in sport events
                                 if video['attributes'].get('secondaryTitle'):
-                                    video_title = video['attributes'].get('name').lstrip() + ' - ' + video['attributes']['secondaryTitle'].lstrip()
+                                    video_title = video['attributes'].get('name').lstrip() + ' - ' + \
+                                                  video['attributes']['secondaryTitle'].lstrip()
                                 else:
                                     video_title = video['attributes'].get('name').lstrip()
 
@@ -2416,7 +2417,7 @@ def list_collection(collection_id, page, mandatoryParams=None, parameter=None):
                                     'poster': show_poster_image
                                 }
 
-                                # mandatoryParams and no paramerer = list search result videos (Episodes, Specials, Extras)
+                                # mandatoryParams and no parameter = list search result videos (Episodes, Specials, Extras)
                                 if mandatoryParams and parameter is None:
                                     folder_name = page_data['data']['attributes'].get('title')
                                 # parameter = list season
@@ -2526,7 +2527,7 @@ def list_collection(collection_id, page, mandatoryParams=None, parameter=None):
                                         info=channel_info, content='videos', art=channel_art,
                                         playable=True, folder_name=collection['attributes'].get('title'))
 
-                    # List collections in discoveryplus.com (US), discoveryplus.in and European countries
+                    # List collections in discoveryplus.com (US), discoveryplus.in and European countries (menu-item)
 
                     # Browse -> Channel or genre -> Category listing (A-Z, Trending...)
                     if collectionItem['relationships'].get('collection'):
@@ -2538,18 +2539,15 @@ def list_collection(collection_id, page, mandatoryParams=None, parameter=None):
                                         # content-grid name can be title or name
                                         if collection['attributes'].get('title'):
                                             title = collection['attributes']['title']
-                                        elif collection['attributes'].get('name'):
-                                            title = collection['attributes']['name']
                                         else:
-                                            title = ''
+                                            title = collection['attributes']['name']
 
                                         params = {
                                             'action': 'list_collection',
                                             'collection_id': collection['id']
                                         }
 
-                                        helper.add_item(title, params,
-                                                        content='videos')
+                                        helper.add_item(title, params, content='videos')
 
                                 # discoveryplus.in
                                 if collection['attributes']['component']['id'] == 'taxonomy-replica':
@@ -2616,13 +2614,12 @@ def list_collection(collection_id, page, mandatoryParams=None, parameter=None):
                                             # menu-item name can be title or name
                                             if collection['attributes'].get('title'):
                                                 title = collection['attributes']['title']
-                                            elif collection['attributes'].get('name'):
-                                                title = collection['attributes']['name']
                                             else:
-                                                title = ''
+                                                title = collection['attributes']['name']
 
                                             for collectionItem2 in collectionItems:
-                                                if collectionItem2['id'] == collection['relationships']['items']['data'][0]['id']:
+                                                if collectionItem2['id'] == \
+                                                        collection['relationships']['items']['data'][0]['id']:
                                                     if collectionItem2['relationships'].get('link'):
                                                         for link in links:
                                                             if collectionItem2['relationships']['link']['data']['id'] == \
@@ -2763,7 +2760,8 @@ def list_collection(collection_id, page, mandatoryParams=None, parameter=None):
                                     'plot': taxonomyNode['attributes'].get('description')
                                 }
 
-                                helper.add_item(taxonomyNode['attributes']['name'], params, info=info, art=art, content='tvshows', sort_method='unsorted')
+                                helper.add_item(taxonomyNode['attributes']['name'], params, info=info, art=art,
+                                                content='tvshows', sort_method='unsorted')
 
         try:
             if page_data['data']['meta']['itemsCurrentPage'] != page_data['data']['meta']['itemsTotalPages']:
@@ -2781,6 +2779,7 @@ def list_collection(collection_id, page, mandatoryParams=None, parameter=None):
 
     helper.eod()
 
+
 def search():
     search_query = helper.get_user_input(helper.language(30007))
     if search_query:
@@ -2792,6 +2791,7 @@ def search():
     else:
         helper.log('No search query provided.')
         return False
+
 
 def router(paramstring):
     """
@@ -2859,7 +2859,7 @@ def router(paramstring):
             helper.d.add_or_delete_favorite(method='post', show_id=params['show_id'])
             helper.refresh_list()
         elif params['action'] == 'delete_favorite':
-            helper.d.add_or_delete_favorite(method='delete',show_id=params['show_id'])
+            helper.d.add_or_delete_favorite(method='delete', show_id=params['show_id'])
             helper.refresh_list()
 
     else:
@@ -2871,6 +2871,7 @@ def router(paramstring):
                 helper.dialog('ok', helper.language(30006), helper.language(30012))
             else:
                 helper.dialog('ok', helper.language(30006), error.value)
+
 
 if __name__ == '__main__':
     # Call the router function and pass the plugin call parameters to it.
