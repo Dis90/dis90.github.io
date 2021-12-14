@@ -109,6 +109,8 @@ class Dplay(object):
                 req = self.http_session.put(url, params=params, data=payload, headers=headers)
             elif method == 'delete':
                 req = self.http_session.delete(url, params=params, data=payload, headers=headers)
+            elif method == 'patch':
+                req = self.http_session.patch(url, params=params, data=payload, headers=headers)
             else:  # post
                 req = self.http_session.post(url, params=params, data=payload, headers=headers)
             self.log('Response code: %s' % req.status_code)
@@ -176,6 +178,37 @@ class Dplay(object):
 
         data = self.make_request(url, 'get')
         return json.loads(data)['data']
+
+    def get_avatars(self):
+        url = '{api_url}/avatars'.format(api_url=self.api_url)
+
+        data = self.make_request(url, 'get', headers=self.site_headers)
+        return json.loads(data)['data']
+
+    def get_profiles(self):
+        url = '{api_url}/users/me/profiles'.format(api_url=self.api_url)
+
+        data = self.make_request(url, 'get', headers=self.site_headers)
+        return json.loads(data)['data']
+
+    def switch_profile(self, profileId, pin=None):
+        jsonPayload = {
+                'data': {
+                    'attributes': {
+                        'selectedProfileId': profileId
+                    },
+                    'id': self.get_user_data()['id'],
+                    'type': 'user'
+                }
+        }
+
+        if pin:
+            url = '{api_url}/users/me/profiles/switchProfile'.format(api_url=self.api_url)
+            jsonPayload['data']['attributes']['profilePin'] = pin
+            return self.make_request(url, 'post', payload=json.dumps(jsonPayload), headers=self.site_headers)
+        else:
+            url = '{api_url}/users/me'.format(api_url=self.api_url)
+            return self.make_request(url, 'patch', payload=json.dumps(jsonPayload), headers=self.site_headers)
 
     def get_menu(self, menu):
         url = '{api_url}/cms/collections{menu}'.format(api_url=self.api_url, menu=menu)
@@ -521,6 +554,7 @@ class Dplay(object):
                                             filter(lambda x: x['type'] == 'channel', epg_page_data['included']))
                                         images = list(filter(lambda x: x['type'] == 'image', epg_page_data['included']))
                                         videos = list(filter(lambda x: x['type'] == 'video', epg_page_data['included']))
+                                        taxonomyNodes = list(filter(lambda x: x['type'] == 'taxonomyNode', epg_page_data['included']))
 
                                         for channel in channels:
                                             if channel['attributes']['hasLiveStream']:
@@ -529,29 +563,6 @@ class Dplay(object):
                                                         if video['id'] == \
                                                                 collectionItem2['relationships']['video']['data'][
                                                                     'id']:
-                                                            if video['attributes']['customAttributes'].get(
-                                                                    'listingSeasonNumber') and video['attributes'][
-                                                                'customAttributes'].get('listingEpisodeNumber'):
-                                                                episode = 'S' + str(
-                                                                    video['attributes']['customAttributes'][
-                                                                        'listingSeasonNumber']) + 'E' + str(
-                                                                    video['attributes']['customAttributes'][
-                                                                        'listingEpisodeNumber'])
-                                                            else:
-                                                                episode = ''
-
-                                                            # Don't add name to subtitle if it same as listingShowName
-                                                            if video['attributes']['customAttributes'].get(
-                                                                    'listingShowName') and video['attributes'].get(
-                                                                'name'):
-                                                                if video['attributes']['customAttributes'][
-                                                                    'listingShowName'] == \
-                                                                        video['attributes']['name']:
-                                                                    subtitle = ''
-                                                                else:
-                                                                    subtitle = video['attributes']['name']
-                                                            else:
-                                                                subtitle = ''
 
                                                             fanart_image = None
                                                             if video['relationships'].get('images'):
@@ -569,15 +580,63 @@ class Dplay(object):
                                                                     id='plugin.video.discoveryplus').getAddonInfo(
                                                                     'name')))
 
-                                                            epg[channel_id].append(dict(
-                                                                start=video['attributes'].get('scheduleStart'),
-                                                                stop=video['attributes'].get('scheduleEnd'),
-                                                                title=video['attributes']['customAttributes'].get(
-                                                                    'listingShowName'),
-                                                                description='',
-                                                                subtitle=subtitle,
-                                                                episode=episode,
-                                                                image=fanart_image
+                                                            # Sport events
+                                                            if video['relationships'].get('txSports'):
+                                                                subtitle = video['attributes'].get('secondaryTitle')
+                                                                for taxonomyNode in taxonomyNodes:
+                                                                    if taxonomyNode['id'] == video['relationships']['txSports']['data'][0]['id']:
+                                                                        if video['attributes'].get('secondaryTitle'):
+                                                                            subtitle = taxonomyNode['attributes'][
+                                                                                           'name'] + ' - ' + \
+                                                                                       video['attributes']['secondaryTitle']
+                                                                        else:
+                                                                            subtitle = taxonomyNode['attributes'][
+                                                                                'name']
+
+                                                                epg[channel_id].append(dict(
+                                                                    start=video['attributes'].get('scheduleStart'),
+                                                                    stop=video['attributes'].get('scheduleEnd'),
+                                                                    title=video['attributes'].get('name'),
+                                                                    description=video['attributes'].get('description'),
+                                                                    subtitle=subtitle,
+                                                                    episode='',
+                                                                    image=fanart_image
+                                                                ))
+                                                            # TV shows
+                                                            else:
+                                                                if video['attributes']['customAttributes'].get(
+                                                                        'listingSeasonNumber') and video['attributes'][
+                                                                    'customAttributes'].get('listingEpisodeNumber'):
+                                                                    episode = 'S' + str(
+                                                                        video['attributes']['customAttributes'][
+                                                                            'listingSeasonNumber']) + 'E' + str(
+                                                                        video['attributes']['customAttributes'][
+                                                                            'listingEpisodeNumber'])
+                                                                else:
+                                                                    episode = ''
+
+                                                                # Don't add name to subtitle if it same as listingShowName
+                                                                if video['attributes']['customAttributes'].get(
+                                                                        'listingShowName') and video['attributes'].get(
+                                                                    'name'):
+                                                                    if video['attributes']['customAttributes'][
+                                                                        'listingShowName'] == \
+                                                                            video['attributes']['name']:
+                                                                        subtitle = ''
+                                                                    else:
+                                                                        subtitle = video['attributes']['name']
+                                                                else:
+                                                                    subtitle = ''
+
+                                                                epg[channel_id].append(dict(
+                                                                    start=video['attributes'].get('scheduleStart'),
+                                                                    stop=video['attributes'].get('scheduleEnd'),
+                                                                    title=video['attributes']['customAttributes'].get(
+                                                                        'listingShowName'),
+                                                                    description=video['attributes'].get('description'),
+                                                                    subtitle=subtitle,
+                                                                    episode=episode,
+                                                                    image=fanart_image
                                                             ))
 
 
