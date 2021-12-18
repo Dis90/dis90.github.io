@@ -15,7 +15,7 @@ helper = KodiHelper(base_url, handle)
 
 def list_pages():
     # List menu items (Shows, Categories)
-    if helper.d.locale_suffix == 'in':
+    if helper.d.realm == 'dplusindia':
         helper.add_item(helper.language(30017), params={'action': 'list_page', 'page_path': '/liked-videos'})
         helper.add_item('Watchlist', params={'action': 'list_page', 'page_path': '/watch-later'})
         helper.add_item('Kids', params={'action': 'list_page', 'page_path': '/kids/home'})
@@ -128,11 +128,11 @@ def list_pages():
                                                                     art=link_art)
 
     # Search discoveryplus.in
-    if helper.d.locale_suffix == 'in':
+    if helper.d.realm == 'dplusindia':
         helper.add_item(helper.language(30007), params={'action': 'search'})
 
     # Profiles
-    if helper.d.locale_suffix != 'in':
+    if helper.d.realm != 'dplusindia':
         helper.add_item(helper.language(30036), params={'action': 'list_profiles'})
 
     helper.eod()
@@ -207,6 +207,81 @@ def list_page_us(page_path, search_query=None):
                                                                                         params,
                                                                                         content='videos',
                                                                                         folder_name=folder_name)
+
+                                        # Channel livestream when it is only item in page
+                                        # discoveryplus.com (US) -> Introducing discovery+ Channels -> channel page live stream
+                                        # discoveryplus.com (EU) Network Rail -> Channel -> livestream
+                                        if collection['attributes']['component']['id'] == 'player':
+                                            if collection.get('relationships'):
+                                                for c in collection['relationships']['items']['data']:
+                                                    for collectionItem in collectionItems:
+                                                        if c['id'] == collectionItem['id']:
+                                                            if collectionItem['relationships'].get('channel'):
+                                                                for channel in channels:
+                                                                    if collectionItem['relationships']['channel'][
+                                                                        'data']['id'] == channel['id']:
+
+                                                                        if channel['attributes'].get(
+                                                                                'hasLiveStream'):
+                                                                            params = {
+                                                                                'action': 'play',
+                                                                                'video_id': channel['id'],
+                                                                                'video_type': 'channel'
+                                                                            }
+
+                                                                            channel_info = {
+                                                                                'mediatype': 'video',
+                                                                                'title': channel['attributes'].get(
+                                                                                    'name'),
+                                                                                'plot': channel['attributes'].get(
+                                                                                    'description'),
+                                                                                'playcount': '0'
+                                                                            }
+
+                                                                            channel_logo = None
+                                                                            fanart_image = None
+                                                                            if channel['relationships'].get(
+                                                                                    'images'):
+                                                                                for image in images:
+                                                                                    for channel_images in \
+                                                                                            channel[
+                                                                                                'relationships'][
+                                                                                                'images']['data']:
+                                                                                        if image['id'] == \
+                                                                                                channel_images[
+                                                                                                    'id']:
+                                                                                            if image['attributes'][
+                                                                                                'kind'] == 'logo':
+                                                                                                channel_logo = \
+                                                                                                    image[
+                                                                                                        'attributes'][
+                                                                                                        'src']
+                                                                                            if image['attributes'][
+                                                                                                'kind'] == 'default':
+                                                                                                fanart_image = \
+                                                                                                    image[
+                                                                                                        'attributes'][
+                                                                                                        'src']
+
+                                                                            if channel_logo:
+                                                                                thumb_image = channel_logo
+                                                                            else:
+                                                                                thumb_image = fanart_image
+
+                                                                            channel_art = {
+                                                                                'fanart': fanart_image,
+                                                                                'thumb': thumb_image
+                                                                            }
+
+                                                                            helper.add_item(
+                                                                                helper.language(30014) + ' ' +
+                                                                                channel['attributes'].get('name'),
+                                                                                params=params,
+                                                                                info=channel_info, content='videos',
+                                                                                art=channel_art,
+                                                                                playable=True,
+                                                                                folder_name=collection[
+                                                                                    'attributes'].get('title'))
 
             # More than one pageItem (homepage, browse, channels...)
             else:
@@ -318,9 +393,7 @@ def list_page_us(page_path, search_query=None):
                                             if collection['attributes']['component']['id'] == 'content-grid':
                                                 # Hide empty grids
                                                 if collection.get('relationships'):
-                                                    if collection['attributes'].get('title') or \
-                                                            collection['attributes']['alias'] == 'networks' or \
-                                                            collection['attributes']['alias'] == 'network-logo-rail':
+                                                    if collection['attributes'].get('title'):
                                                         params = {
                                                             'action': 'list_collection',
                                                             'collection_id': collection['id'],
@@ -331,15 +404,25 @@ def list_page_us(page_path, search_query=None):
                                                             # pf[channel.id]=292&pf[recs.id]=292&pf[recs.type]=channel
                                                         }
 
-                                                        if collection['attributes'].get('title'):
-                                                            title = collection['attributes']['title']
-                                                        else:
-                                                            title = collection['attributes']['name']
-
-                                                        helper.add_item(title, params,
+                                                        helper.add_item(collection['attributes']['title'], params,
                                                                         content='videos',
                                                                         folder_name=page['attributes'].get(
                                                                             'pageMetadataTitle'))
+
+                                                    # Home -> For You -> Network logo rail category link
+                                                    if collection['attributes']['component'].get('templateId') == 'circle' and \
+                                                            collection['attributes']['component'].get('customAttributes'):
+                                                        if collection['attributes']['component']['customAttributes'].get('isBroadcastTile') is True:
+
+                                                            params = {
+                                                                'action': 'list_collection',
+                                                                'collection_id': collection['id']
+                                                            }
+
+                                                            helper.add_item(helper.language(30040), params,
+                                                                            content='videos',
+                                                                            folder_name=page['attributes'].get(
+                                                                                'pageMetadataTitle'))
 
                                             # Episodes, Extras, About the Show, You May Also Like
                                             if collection['attributes']['component']['id'] == 'tabbed-component':
@@ -353,8 +436,22 @@ def list_page_us(page_path, search_query=None):
                                                                             'id'] == c2['id']:
 
                                                                     # User setting for listing only seasons in shows page
-                                                                    if helper.get_setting('seasonsonly'):
+                                                                    # seasononly and seasons listed in shows details
+                                                                    if helper.get_setting('seasonsonly') and \
+                                                                            c2['attributes']['component'].get('filters') and \
+                                                                                        len(c2['attributes']['component']['filters'][0].get('options')) > 0:
                                                                         list_collection_items(collection_id=c2['id'], page_path=page_path)
+                                                                        
+                                                                    # seasonsonly and no seasons listed in shows details
+                                                                    elif helper.get_setting('seasonsonly') and \
+                                                                            c2['attributes']['component'].get('filters') and \
+                                                                            len(c2['attributes']['component']['filters'][0].get('options')) == 0:
+
+
+                                                                        list_collection(collection_id=c2['id'],
+                                                                                        mandatoryParams=c2['attributes']['component'].get('mandatoryParams'),
+                                                                                        page=1)
+
                                                                     else:
                                                                         # Episodes and Extras
                                                                         if c2['attributes']['component'][
@@ -929,7 +1026,7 @@ def list_collection_items(collection_id, page_path=None):
                                         mpaa = None
                                         if show['attributes'].get('contentRatings'):
                                             for contentRating in show['attributes']['contentRatings']:
-                                                if contentRating['system'] == 'NICAM':
+                                                if contentRating['system'] == helper.d.contentRatingSystem:
                                                     mpaa = contentRating['code']
 
                                         if show['relationships'].get('primaryChannel'):
@@ -959,7 +1056,7 @@ def list_collection_items(collection_id, page_path=None):
                                                         if image['attributes']['kind'] == 'logo':
                                                             logo_image = image['attributes']['src']
                                                         # discoveryplus.in has logos in poster
-                                                        if helper.d.locale_suffix == 'in':
+                                                        if helper.d.realm == 'dplusindia':
                                                             if image['attributes']['kind'] == 'poster':
                                                                 poster_image = image['attributes']['src']
                                                         else:
@@ -1049,7 +1146,7 @@ def list_collection_items(collection_id, page_path=None):
                                         mpaa = None
                                         if show['attributes'].get('contentRatings'):
                                             for contentRating in show['attributes']['contentRatings']:
-                                                if contentRating['system'] == 'NICAM':
+                                                if contentRating['system'] == helper.d.contentRatingSystem:
                                                     mpaa = contentRating['code']
 
                                         if show['relationships'].get('primaryChannel'):
@@ -1097,7 +1194,7 @@ def list_collection_items(collection_id, page_path=None):
                                                         if image['attributes']['kind'] == 'logo':
                                                             logo_image = image['attributes']['src']
                                                         # discoveryplus.in has logos in poster
-                                                        if helper.d.locale_suffix == 'in':
+                                                        if helper.d.realm== 'dplusindia':
                                                             if image['attributes']['kind'] == 'poster':
                                                                 poster_image = image['attributes']['src']
                                                         else:
@@ -1144,7 +1241,7 @@ def list_collection_items(collection_id, page_path=None):
                                                                 if image['attributes']['kind'] == 'logo':
                                                                     show_logo_image = image['attributes']['src']
                                                                 # discoveryplus.in has logos in poster
-                                                                if helper.d.locale_suffix == 'in':
+                                                                if helper.d.realm == 'dplusindia':
                                                                     if image['attributes']['kind'] == 'poster':
                                                                         show_poster_image = image['attributes']['src']
                                                                 else:
@@ -1162,7 +1259,7 @@ def list_collection_items(collection_id, page_path=None):
                                         mpaa = None
                                         if video['attributes'].get('contentRatings'):
                                             for contentRating in video['attributes']['contentRatings']:
-                                                if contentRating['system'] == 'NICAM':
+                                                if contentRating['system'] == helper.d.contentRatingSystem:
                                                     mpaa = contentRating['code']
 
                                         if video['relationships'].get('primaryChannel'):
@@ -1324,7 +1421,7 @@ def list_search_shows_in(search_query):
         mpaa = None
         if show['attributes'].get('contentRatings'):
             for contentRating in show['attributes']['contentRatings']:
-                if contentRating['system'] == 'NICAM':
+                if contentRating['system'] == helper.d.contentRatingSystem:
                     mpaa = contentRating['code']
 
         info = {
@@ -1362,7 +1459,7 @@ def list_search_shows_in(search_query):
                         if image['attributes']['kind'] == 'logo':
                             logo_image = image['attributes']['src']
                         # discoveryplus.in has logos in poster
-                        if helper.d.locale_suffix == 'in':
+                        if helper.d.realm == 'dplusindia':
                             if image['attributes']['kind'] == 'poster':
                                 poster_image = image['attributes']['src']
                         else:
@@ -1415,7 +1512,7 @@ def list_favorites_in():
         mpaa = None
         if show['attributes'].get('contentRatings'):
             for contentRating in show['attributes']['contentRatings']:
-                if contentRating['system'] == 'NICAM':
+                if contentRating['system'] == helper.d.contentRatingSystem:
                     mpaa = contentRating['code']
 
         info = {
@@ -1446,7 +1543,7 @@ def list_favorites_in():
                         if image['attributes']['kind'] == 'logo':
                             logo_image = image['attributes']['src']
                         # discoveryplus.in has logos in poster
-                        if helper.d.locale_suffix == 'in':
+                        if helper.d.realm == 'dplusindia':
                             if image['attributes']['kind'] == 'poster':
                                 poster_image = image['attributes']['src']
                         else:
@@ -1505,7 +1602,7 @@ def list_favorite_watchlist_videos_in(videoType=None, playlist=None):
                             if image['attributes']['kind'] == 'logo':
                                 show_logo_image = image['attributes']['src']
                             # discoveryplus.in has logos in poster
-                            if helper.d.locale_suffix == 'in':
+                            if helper.d.realm == 'dplusindia':
                                 if image['attributes']['kind'] == 'poster':
                                     show_poster_image = image['attributes']['src']
                             else:
@@ -1523,7 +1620,7 @@ def list_favorite_watchlist_videos_in(videoType=None, playlist=None):
         mpaa = None
         if video['attributes'].get('contentRatings'):
             for contentRating in video['attributes']['contentRatings']:
-                if contentRating['system'] == 'NICAM':
+                if contentRating['system'] == helper.d.contentRatingSystem:
                     mpaa = contentRating['code']
 
         if video['relationships'].get('primaryChannel'):
@@ -1697,7 +1794,7 @@ def list_collection(collection_id, page, mandatoryParams=None, parameter=None):
                                 mpaa = None
                                 if show['attributes'].get('contentRatings'):
                                     for contentRating in show['attributes']['contentRatings']:
-                                        if contentRating['system'] == 'NICAM':
+                                        if contentRating['system'] == helper.d.contentRatingSystem:
                                             mpaa = contentRating['code']
 
                                 if show['relationships'].get('primaryChannel'):
@@ -1745,7 +1842,7 @@ def list_collection(collection_id, page, mandatoryParams=None, parameter=None):
                                                 if image['attributes']['kind'] == 'logo':
                                                     logo_image = image['attributes']['src']
                                                 # discoveryplus.in has logos in poster
-                                                if helper.d.locale_suffix == 'in':
+                                                if helper.d.realm == 'dplusindia':
                                                     if image['attributes']['kind'] == 'poster':
                                                         poster_image = image['attributes']['src']
                                                 else:
@@ -1792,7 +1889,7 @@ def list_collection(collection_id, page, mandatoryParams=None, parameter=None):
                                                         if image['attributes']['kind'] == 'logo':
                                                             show_logo_image = image['attributes']['src']
                                                         # discoveryplus.in has logos in poster
-                                                        if helper.d.locale_suffix == 'in':
+                                                        if helper.d.realm == 'dplusindia':
                                                             if image['attributes']['kind'] == 'poster':
                                                                 show_poster_image = image['attributes']['src']
                                                         else:
@@ -1810,7 +1907,7 @@ def list_collection(collection_id, page, mandatoryParams=None, parameter=None):
                                 mpaa = None
                                 if video['attributes'].get('contentRatings'):
                                     for contentRating in video['attributes']['contentRatings']:
-                                        if contentRating['system'] == 'NICAM':
+                                        if contentRating['system'] == helper.d.contentRatingSystem:
                                             mpaa = contentRating['code']
 
                                 # Sport example Tennis
@@ -1960,6 +2057,7 @@ def list_collection(collection_id, page, mandatoryParams=None, parameter=None):
                                                 folder_name=folder_name, sort_method='sort_episodes')
 
                     # Explore -> Live Channels & On Demand Shows, Explore Shows and Full Episodes content in d+ India
+                    # Home -> For You -> Network logo rail content in discoveryplus.com (US and EU)
                     if collectionItem['relationships'].get('channel'):
                         for channel in channels:
                             if collectionItem['relationships']['channel']['data']['id'] == channel['id']:
@@ -2203,7 +2301,7 @@ def list_collection(collection_id, page, mandatoryParams=None, parameter=None):
                                                 if image['attributes']['kind'] == 'logo':
                                                     logo_image = image['attributes']['src']
                                                 # discoveryplus.in has logos in poster
-                                                if helper.d.locale_suffix == 'in':
+                                                if helper.d.realm == 'dplusindia':
                                                     if image['attributes']['kind'] == 'poster':
                                                         poster_image = image['attributes']['src']
                                                 else:
@@ -2244,7 +2342,7 @@ def list_collection(collection_id, page, mandatoryParams=None, parameter=None):
 def search():
     search_query = helper.get_user_input(helper.language(30007))
     if search_query:
-        if helper.d.locale_suffix == 'in':
+        if helper.d.realm == 'dplusindia':
             list_search_shows_in(search_query)
         # discoveryplus.com (US and EU)
         else:
@@ -2320,7 +2418,7 @@ def router(paramstring):
         helper.d.get_token()
 
         if params['action'] == 'list_page':
-            if helper.d.locale_suffix == 'in':
+            if helper.d.realm == 'dplusindia':
                 list_page_in(page_path=params['page_path'])
             else:
                 list_page_us(page_path=params['page_path'])
@@ -2364,7 +2462,6 @@ def router(paramstring):
             helper.refresh_list()
 
     else:
-        helper.set_country()
         try:
             if helper.check_for_credentials():
                 list_pages()
