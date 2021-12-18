@@ -50,11 +50,11 @@ msgid "No results found for"
 msgstr ""
 
 msgctxt "#30009"
-msgid "Add to favorites (discovery+)"
+msgid "Add to My List (discovery+)"
 msgstr ""
 
 msgctxt "#30010"
-msgid "Delete from favorites (discovery+)"
+msgid "Delete from My List (discovery+)"
 msgstr ""
 
 msgctxt "#30011"
@@ -130,7 +130,7 @@ msgid "Use InputStream Adaptive"
 msgstr ""
 
 msgctxt "#30029"
-msgid "Enable UHD (experimental)"
+msgid "Enable UHD (experimental) / USA only"
 msgstr ""
 
 msgctxt "#30030"
@@ -171,4 +171,8 @@ msgstr ""
 
 msgctxt "#30039"
 msgid "Cookie"
+msgstr ""
+
+msgctxt "#30040"
+msgid "Channels"
 msgstr ""
