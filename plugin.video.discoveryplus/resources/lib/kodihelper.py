@@ -126,7 +126,7 @@ class KodiHelper(object):
             listitem.setProperty('IsPlayable', 'true')
             listitem.setProperty('get_stream_details_from_player', 'true')
             folder = False
-        if resume:
+        if resume is not None:
             listitem.setProperty("ResumeTime", str(resume))
             listitem.setProperty("TotalTime", str(total))
         if art:
@@ -292,16 +292,25 @@ class KodiHelper(object):
                 duration = current_episode['data']['attributes']['videoDuration'] / 1000.0 if current_episode['data'][
                     'attributes'].get('videoDuration') else None
 
-                info = {
-                    'mediatype': 'episode',
-                    'title': current_episode['data']['attributes'].get('name').lstrip(),
-                    'tvshowtitle': show_title,
-                    'season': current_episode['data']['attributes'].get('seasonNumber'),
-                    'episode': current_episode['data']['attributes'].get('episodeNumber'),
-                    'plot': current_episode['data']['attributes'].get('description'),
-                    'duration': duration,
-                    'aired': current_episode['data']['attributes'].get('airDate')
-                }
+                if current_episode['data']['attributes']['videoType'] == 'LIVE':
+                    info = {
+                        'mediatype': 'video',
+                        'title': current_episode['data']['attributes'].get('name').lstrip(),
+                        'plot': current_episode['data']['attributes'].get('description'),
+                        'duration': duration,
+                        'aired': current_episode['data']['attributes'].get('airDate')
+                    }
+                else:
+                    info = {
+                        'mediatype': 'episode',
+                        'title': current_episode['data']['attributes'].get('name').lstrip(),
+                        'tvshowtitle': show_title,
+                        'season': current_episode['data']['attributes'].get('seasonNumber'),
+                        'episode': current_episode['data']['attributes'].get('episodeNumber'),
+                        'plot': current_episode['data']['attributes'].get('description'),
+                        'duration': duration,
+                        'aired': current_episode['data']['attributes'].get('airDate')
+                    }
 
                 playitem.setInfo('video', info)
 
@@ -546,11 +555,7 @@ class DplusPlayer(xbmc.Player):
         # Over 92 percent watched = use totaltime
         if video_percentage > 92:
             self.helper.log('Marking episode completely watched')
-            # discovery+ wants POST before PUT
-            self.helper.d.update_playback_progress('post', self.video_id, video_totaltime_msec)
-            self.helper.d.update_playback_progress('put', self.video_id, video_totaltime_msec)
+            self.helper.d.update_playback_progress(self.video_id, video_totaltime_msec)
         else:
             self.helper.log('Marking episode partly watched')
-            # discovery+ wants POST before PUT
-            self.helper.d.update_playback_progress('post', self.video_id, video_lastpos_msec)
-            self.helper.d.update_playback_progress('put', self.video_id, video_lastpos_msec)
+            self.helper.d.update_playback_progress(self.video_id, video_lastpos_msec)
