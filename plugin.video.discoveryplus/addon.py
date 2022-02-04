@@ -1099,22 +1099,52 @@ def list_collection_items(collection_id, page_path=None):
                                         'mpaa': mpaa
                                     }
 
-                                    # Watched status from Discovery+
+                                    # Watched status from discovery+
+                                    menu = []
                                     if helper.get_setting('sync_playback'):
                                         if video['attributes']['viewingHistory']['viewed']:
-                                            if video['attributes']['viewingHistory'].get(
-                                                    'completed'):  # Watched video
-                                                episode_info['playcount'] = '1'
-                                                resume = 0
-                                                total = duration
-                                            else:  # Partly watched video
+                                            #if video['attributes']['viewingHistory'].get('completed'):
+                                            if 'completed' in video['attributes']['viewingHistory']:
+                                                if video['attributes']['viewingHistory']['completed']:  # Watched video
+                                                    episode_info['playcount'] = '1'
+                                                    resume = 0
+                                                    total = duration
+                                                    # Mark as unwatched
+                                                    menu.append((helper.language(30042),
+                                                                 'RunPlugin(plugin://' + helper.addon_name +
+                                                                 '/?action=update_playback_progress&video_id=' + str(
+                                                                     video['id']) + '&position=0' + ')',))
+                                                else:  # Partly watched video
+                                                    episode_info['playcount'] = '0'
+                                                    resume = video['attributes']['viewingHistory']['position'] / 1000.0
+                                                    total = duration
+                                                    # Reset resume position
+                                                    menu.append((helper.language(30044),
+                                                                 'RunPlugin(plugin://' + helper.addon_name +
+                                                                 '/?action=update_playback_progress&video_id=' + str(
+                                                                     video['id']) + '&position=0' + ')',))
+                                                    # Mark as watched
+                                                    menu.append((helper.language(30043),
+                                                                 'RunPlugin(plugin://' + helper.addon_name +
+                                                                 '/?action=update_playback_progress&video_id=' + str(
+                                                                     video['id']) + '&position=' + str(video['attributes'][
+                                                                     'videoDuration']) + ')',))
+                                            else:  # Sometimes 'viewed' is True but 'completed' is missing. Example some Live sports
                                                 episode_info['playcount'] = '0'
-                                                resume = video['attributes']['viewingHistory']['position'] / 1000.0
-                                                total = duration
+                                                resume = 0
+                                                total = 1
                                         else:  # Unwatched video
                                             episode_info['playcount'] = '0'
                                             resume = 0
                                             total = 1
+                                            # Live sport doesn't have videoDuration
+                                            if video['attributes'].get('videoDuration'):
+                                                # Mark as watched
+                                                menu.append((helper.language(30043),
+                                                         'RunPlugin(plugin://' + helper.addon_name +
+                                                             '/?action=update_playback_progress&video_id=' + str(
+                                                             video['id']) + '&position=' + str(video['attributes'][
+                                                             'videoDuration']) + ')',))
                                     else:  # Kodis resume data used
                                         resume = None
                                         total = None
@@ -1126,9 +1156,8 @@ def list_collection_items(collection_id, page_path=None):
                                         'poster': show_poster_image
                                     }
 
-                                    helper.add_item(video_title, params=params,
-                                                    info=episode_info, art=episode_art,
-                                                    content='episodes', playable=True, resume=resume, total=total,
+                                    helper.add_item(video_title, params=params, info=episode_info, art=episode_art,
+                                                    content='episodes', menu=menu, playable=True, resume=resume, total=total,
                                                     folder_name=collection['attributes'].get('title'),
                                                     sort_method='sort_episodes')
 
@@ -1367,20 +1396,45 @@ def list_favorite_watchlist_videos_in(videoType=None, playlist=None):
         }
 
         # Watched status from discovery+
+        menu = []
         if helper.get_setting('sync_playback'):
             if video['attributes']['viewingHistory']['viewed']:
-                if video['attributes']['viewingHistory']['completed']:  # Watched video
-                    episode_info['playcount'] = '1'
-                    resume = 0
-                    total = duration
-                else:  # Partly watched video
+                # if video['attributes']['viewingHistory'].get('completed'):
+                if 'completed' in video['attributes']['viewingHistory']:
+                    if video['attributes']['viewingHistory']['completed']:  # Watched video
+                        episode_info['playcount'] = '1'
+                        resume = 0
+                        total = duration
+                        # Mark as unwatched
+                        menu.append((helper.language(30042),
+                                     'RunPlugin(plugin://' + helper.addon_name + '/?action=update_playback_progress&video_id=' + str(
+                                         video['id']) + '&position=0' + ')',))
+                    else:  # Partly watched video
+                        episode_info['playcount'] = '0'
+                        resume = video['attributes']['viewingHistory']['position'] / 1000.0
+                        total = duration
+                        # Reset resume position
+                        menu.append((helper.language(30044),
+                                     'RunPlugin(plugin://' + helper.addon_name + '/?action=update_playback_progress&video_id=' + str(
+                                         video['id']) + '&position=0' + ')',))
+                        # Mark as watched
+                        menu.append((helper.language(30043),
+                                     'RunPlugin(plugin://' + helper.addon_name + '/?action=update_playback_progress&video_id=' + str(
+                                         video['id']) + '&position=' + str(video['attributes']['videoDuration']) + ')',))
+                else:  # Sometimes 'viewed' is True but 'completed' is missing. Example some Live sports
                     episode_info['playcount'] = '0'
-                    resume = video['attributes']['viewingHistory']['position'] / 1000.0
-                    total = duration
+                    resume = 0
+                    total = 1
             else:  # Unwatched video
                 episode_info['playcount'] = '0'
                 resume = 0
                 total = 1
+                # Live sport doesn't have videoDuration
+                if video['attributes'].get('videoDuration'):
+                    # Mark as watched
+                    menu.append((helper.language(30043),
+                                 'RunPlugin(plugin://' + helper.addon_name + '/?action=update_playback_progress&video_id=' + str(
+                                     video['id']) + '&position=' + str(video['attributes']['videoDuration']) + ')',))
         else:  # Kodis resume data used
             resume = None
             total = None
@@ -1397,10 +1451,8 @@ def list_favorite_watchlist_videos_in(videoType=None, playlist=None):
         else:
             folder_name = 'Watchlist'
 
-        helper.add_item(video['attributes'].get('name').lstrip(), params=params,
-                        info=episode_info,
-                        art=episode_art,
-                        content='episodes', playable=True, resume=resume, total=total,
+        helper.add_item(video['attributes'].get('name').lstrip(), params=params, info=episode_info, art=episode_art,
+                        content='episodes', menu=menu, playable=True, resume=resume, total=total,
                         folder_name=folder_name, sort_method='sort_episodes')
 
     helper.eod()
@@ -1778,32 +1830,60 @@ def list_collection(collection_id, page, mandatoryParams=None, parameter=None):
                                     if video['attributes'].get('earliestPlayableStart'):
                                         aired = str(helper.d.parse_datetime(video['attributes']['earliestPlayableStart']))
 
-                                    episode_info = {
-                                        'mediatype': 'episode',
-                                        'title': video_title,
-                                        'tvshowtitle': show_title,
-                                        'season': video['attributes'].get('seasonNumber'),
-                                        'episode': video['attributes'].get('episodeNumber'),
-                                        'plot': plot,
-                                        'genre': g,
-                                        'studio': primaryChannel,
-                                        'duration': duration,
-                                        'aired': aired,
-                                        'mpaa': mpaa
-                                    }
+                                    if video['attributes']['videoType'] == 'LIVE':
+                                        episode_info = {
+                                            'mediatype': 'video',
+                                            'title': video_title,
+                                            'plot': plot,
+                                            'studio': primaryChannel,
+                                            'duration': duration,
+                                            'aired': aired
+                                        }
+                                    else:
+                                        episode_info = {
+                                            'mediatype': 'episode',
+                                            'title': video_title,
+                                            'tvshowtitle': show_title,
+                                            'season': video['attributes'].get('seasonNumber'),
+                                            'episode': video['attributes'].get('episodeNumber'),
+                                            'plot': plot,
+                                            'genre': g,
+                                            'studio': primaryChannel,
+                                            'duration': duration,
+                                            'aired': aired,
+                                            'mpaa': mpaa
+                                        }
 
                                     # Watched status from discovery+
+                                    menu = []
                                     if helper.get_setting('sync_playback'):
                                         if video['attributes']['viewingHistory']['viewed']:
-                                            if video['attributes']['viewingHistory'].get('completed'):
+                                            #if video['attributes']['viewingHistory'].get('completed'):
+                                            if 'completed' in video['attributes']['viewingHistory']:
                                                 if video['attributes']['viewingHistory']['completed']:  # Watched video
                                                     episode_info['playcount'] = '1'
                                                     resume = 0
                                                     total = duration
+                                                    # Mark as unwatched
+                                                    menu.append((helper.language(30042),
+                                                                 'RunPlugin(plugin://' + helper.addon_name +
+                                                                 '/?action=update_playback_progress&video_id=' + str(
+                                                                     video['id']) + '&position=0' + ')',))
                                                 else:  # Partly watched video
                                                     episode_info['playcount'] = '0'
                                                     resume = video['attributes']['viewingHistory']['position'] / 1000.0
                                                     total = duration
+                                                    # Reset resume position
+                                                    menu.append((helper.language(30044),
+                                                                 'RunPlugin(plugin://' + helper.addon_name +
+                                                                 '/?action=update_playback_progress&video_id=' + str(
+                                                                     video['id']) + '&position=0' + ')',))
+                                                    # Mark as watched
+                                                    menu.append((helper.language(30043),
+                                                                 'RunPlugin(plugin://' + helper.addon_name +
+                                                                 '/?action=update_playback_progress&video_id=' + str(
+                                                                     video['id']) + '&position=' + str(video['attributes'][
+                                                                    'videoDuration']) + ')',))
                                             else:  # Sometimes 'viewed' is True but 'completed' is missing. Example some Live sports
                                                 episode_info['playcount'] = '0'
                                                 resume = 0
@@ -1812,6 +1892,14 @@ def list_collection(collection_id, page, mandatoryParams=None, parameter=None):
                                             episode_info['playcount'] = '0'
                                             resume = 0
                                             total = 1
+                                            # Live sport doesn't have videoDuration
+                                            if video['attributes'].get('videoDuration'):
+                                                # Mark as watched
+                                                menu.append((helper.language(30043),
+                                                         'RunPlugin(plugin://' + helper.addon_name +
+                                                             '/?action=update_playback_progress&video_id=' + str(
+                                                             video['id']) + '&position=' + str(video['attributes'][
+                                                             'videoDuration']) + ')',))
                                     else:  # Kodis resume data used
                                         resume = None
                                         total = None
@@ -1833,11 +1921,15 @@ def list_collection(collection_id, page, mandatoryParams=None, parameter=None):
                                     else:
                                         folder_name = show_title
 
-                                    helper.add_item(video_title, params=params,
-                                                    info=episode_info,
-                                                    art=episode_art,
-                                                    content='episodes', playable=True, resume=resume, total=total,
-                                                    folder_name=folder_name, sort_method='sort_episodes')
+                                    # Use sort_episodes only when episodeNumber is available
+                                    if video['attributes'].get('episodeNumber'):
+                                        sort_method = 'sort_episodes'
+                                    else:
+                                        sort_method = 'unsorted'
+
+                                    helper.add_item(video_title, params=params, info=episode_info, art=episode_art,
+                                                    content='episodes', menu=menu, playable=True, resume=resume, total=total,
+                                                    folder_name=folder_name, sort_method=sort_method)
 
                         # Explore -> Live Channels & On Demand Shows, Explore Shows and Full Episodes content in d+ India
                         # Home -> For You -> Network logo rail content in discoveryplus.com (US and EU)
@@ -2233,6 +2325,9 @@ def router(paramstring):
                         helper.dialog('ok', helper.language(30006), error.value)
             else:
                 helper.d.switch_profile(params['profileId'])
+            helper.refresh_list()
+        elif params['action'] == 'update_playback_progress':
+            helper.d.update_playback_progress(video_id=params['video_id'], position=params['position'])
             helper.refresh_list()
 
     else:
