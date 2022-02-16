@@ -117,8 +117,8 @@ class KodiHelper(object):
         if os.path.exists(cookie_file):
             os.remove(cookie_file)
 
-    def add_item(self, title, url, folder=True, playable=False, info=None, art=None, content=False,
-                 menu=None, resume=None, total=None, folder_name=None, sort_method=None):
+    def add_item(self, title, url, folder=True, playable=False, info=None, art=None, menu=None,
+                 resume=None, total=None, position=None):
         addon = self.get_addon()
         listitem = xbmcgui.ListItem(label=title, offscreen=True)
 
@@ -139,26 +139,31 @@ class KodiHelper(object):
             listitem.setArt(art)
         if info:
             listitem.setInfo('video', info)
-        if content:
-            xbmcplugin.setContent(self.handle, content)
         if menu:
             listitem.addContextMenuItems(menu)
-        if folder_name:
-            xbmcplugin.setPluginCategory(self.handle, folder_name)
-        if sort_method:
-            if sort_method == 'unsorted':
-                xbmcplugin.addSortMethod(self.handle, xbmcplugin.SORT_METHOD_UNSORTED)
-                xbmcplugin.addSortMethod(self.handle, xbmcplugin.SORT_METHOD_LABEL)
-            if sort_method == 'sort_label':
-                xbmcplugin.addSortMethod(self.handle, xbmcplugin.SORT_METHOD_LABEL)
-            if sort_method == 'sort_episodes':
-                xbmcplugin.addSortMethod(self.handle, xbmcplugin.SORT_METHOD_EPISODE)
-                xbmcplugin.addSortMethod(self.handle, xbmcplugin.SORT_METHOD_VIDEO_TITLE)
-            if sort_method == 'bottom':
-                listitem.setProperty("SpecialSort", "bottom")
+        # SpecialSort
+        if position:
+            listitem.setProperty("SpecialSort", position)
 
         xbmcplugin.addDirectoryItem(self.handle, url, listitem, folder)
 
+    def add_sort_methods(self, sort_method):
+        if sort_method == 'unsorted':
+            xbmcplugin.addSortMethod(self.handle, xbmcplugin.SORT_METHOD_UNSORTED)
+            xbmcplugin.addSortMethod(self.handle, xbmcplugin.SORT_METHOD_LABEL)
+        if sort_method == 'sort_label':
+            xbmcplugin.addSortMethod(self.handle, xbmcplugin.SORT_METHOD_LABEL)
+        if sort_method == 'sort_episodes':
+            xbmcplugin.addSortMethod(self.handle, xbmcplugin.SORT_METHOD_EPISODE)
+            xbmcplugin.addSortMethod(self.handle, xbmcplugin.SORT_METHOD_VIDEO_TITLE)
+
+    def finalize_directory(self, content_type=None, sort_method='unsorted', title=None):
+        """Finalize a directory listing. Set title, available sort methods and content type"""
+        if title:
+            xbmcplugin.setPluginCategory(self.handle, title)
+        if content_type:
+            xbmcplugin.setContent(self.handle, content_type)
+        self.add_sort_methods(sort_method)
 
     def eod(self):
         """Tell Kodi that the end of the directory listing is reached."""
@@ -261,20 +266,12 @@ class KodiHelper(object):
 
                 show = [x for x in shows if x['id'] == current_episode['data']['relationships']['show']['data']['id']][0]
 
-                show_fanart_image = None
-                show_logo_image = None
-                show_poster_image = None
-
-                if show['relationships'].get('images'):
-                    for image in images:
-                        for show_images in show['relationships']['images']['data']:
-                            if image['id'] == show_images['id']:
-                                if image['attributes']['kind'] == 'default':
-                                    show_fanart_image = image['attributes']['src']
-                                if image['attributes']['kind'] == 'logo':
-                                    show_logo_image = image['attributes']['src']
-                                if image['attributes']['kind'] == 'poster_with_logo':
-                                    show_poster_image = image['attributes']['src']
+                # Content rating
+                mpaa = None
+                if current_episode['data']['attributes'].get('contentRatings'):
+                    for contentRating in current_episode['data']['attributes']['contentRatings']:
+                        if contentRating['system'] == self.d.contentRatingSystem:
+                            mpaa = contentRating['code']
 
                 # Thumbnail
                 video_thumb_image = None
@@ -285,13 +282,18 @@ class KodiHelper(object):
                 duration = current_episode['data']['attributes']['videoDuration'] / 1000.0 if current_episode['data'][
                     'attributes'].get('videoDuration') else None
 
+                aired = ''
+                if current_episode['data']['attributes'].get('earliestPlayableStart'):
+                    aired = str(self.d.parse_datetime(current_episode['data']['attributes']['earliestPlayableStart'])
+                                .strftime('%d.%m.%Y'))
+
                 if current_episode['data']['attributes']['videoType'] == 'LIVE':
                     info = {
                         'mediatype': 'video',
                         'title': current_episode['data']['attributes'].get('name').lstrip(),
                         'plot': current_episode['data']['attributes'].get('description'),
                         'duration': duration,
-                        'aired': current_episode['data']['attributes'].get('airDate')
+                        'aired': aired
                     }
                 else:
                     info = {
@@ -302,17 +304,13 @@ class KodiHelper(object):
                         'episode': current_episode['data']['attributes'].get('episodeNumber'),
                         'plot': current_episode['data']['attributes'].get('description'),
                         'duration': duration,
-                        'aired': current_episode['data']['attributes'].get('airDate')
+                        'aired': current_episode['data']['attributes'].get('airDate'),
+                        'mpaa': mpaa
                     }
 
                 playitem.setInfo('video', info)
 
-                art = {
-                    'fanart': show_fanart_image,
-                    'thumb': video_thumb_image,
-                    'clearlogo': show_logo_image,
-                    'poster': show_poster_image
-                }
+                art = self.d.parse_artwork(show['relationships'].get('images'), images, video_thumb=video_thumb_image)
 
                 playitem.setArt(art)
 
@@ -435,38 +433,19 @@ class DplusPlayer(xbmc.Player):
 
             show = [x for x in shows if x['id'] == next_episode['data'][0]['relationships']['show']['data']['id']][0]
 
-            show_fanart_image = None
-            show_logo_image = None
-            show_poster_image = None
-
-            if show['relationships'].get('images'):
-                for image in images:
-                    for show_images in show['relationships']['images']['data']:
-                        if image['id'] == show_images['id']:
-                            if image['attributes']['kind'] == 'default':
-                                show_fanart_image = image['attributes']['src']
-                            if image['attributes']['kind'] == 'logo':
-                                show_logo_image = image['attributes']['src']
-                            if image['attributes']['kind'] == 'poster_with_logo':
-                                show_poster_image = image['attributes']['src']
-
             # Thumbnail
             next_episode_thumb_image = None
             if next_episode['data'][0]['relationships'].get('images'):
                 next_episode_thumb_image = [x['attributes']['src'] for x in images if
                                             x['id'] == next_episode['data'][0]['relationships']['images']['data'][0]['id']][0]
 
-            if self.current_episode_info.get('aired'):
-                current_episode_aired = self.helper.d.parse_datetime(self.current_episode_info['aired']).strftime(
-                    '%d.%m.%Y')
-            else:
-                current_episode_aired = ''
+            next_episode_aired = ''
+            if next_episode['data'][0]['attributes'].get('earliestPlayableStart'):
+                next_episode_aired = str(self.helper.d.parse_datetime(next_episode['data'][0]['attributes']['earliestPlayableStart'])\
+                    .strftime('%d.%m.%Y'))
 
-            if next_episode['data'][0]['attributes'].get('airDate'):
-                next_episode_aired = self.helper.d.parse_datetime(
-                    next_episode['data'][0]['attributes']['airDate']).strftime('%d.%m.%Y')
-            else:
-                next_episode_aired = ''
+            next_episode_art = self.helper.d.parse_artwork(show['relationships'].get('images'), images,
+                                                    video_thumb=next_episode_thumb_image)
 
             next_info = dict(
                 current_episode=dict(
@@ -487,7 +466,7 @@ class DplusPlayer(xbmc.Player):
                     plot=self.current_episode_info['title'],
                     playcount='',
                     rating=None,
-                    firstaired=current_episode_aired,
+                    firstaired=self.current_episode_info['aired'],
                     runtime=self.current_episode_info['duration'],
                 ),
                 next_episode=dict(
@@ -495,12 +474,12 @@ class DplusPlayer(xbmc.Player):
                     tvshowid=next_episode['data'][0]['relationships']['show']['data']['id'],
                     title=next_episode['data'][0]['attributes'].get('name').lstrip(),
                     art={
-                        'thumb': next_episode_thumb_image,
+                        'thumb': next_episode_art['thumb'],
                         'tvshow.clearart': '',
-                        'tvshow.clearlogo': show_logo_image,
-                        'tvshow.fanart': show_fanart_image,
+                        'tvshow.clearlogo': next_episode_art['clearlogo'],
+                        'tvshow.fanart': next_episode_art['fanart'],
                         'tvshow.landscape:': '',
-                        'tvshow.poster': show_poster_image,
+                        'tvshow.poster': next_episode_art['poster'],
                     },
                     season=next_episode['data'][0]['attributes'].get('seasonNumber'),
                     episode=next_episode['data'][0]['attributes'].get('episodeNumber'),
