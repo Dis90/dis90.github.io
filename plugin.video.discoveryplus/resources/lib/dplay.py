@@ -34,13 +34,14 @@ def slugify(text):
     return text
 
 class Dplay(object):
-    def __init__(self, settings_folder, logging_prefix, numresults, cookiestxt, cookiestxt_file, cookie, us_uhd, drm_supported):
+    def __init__(self, settings_folder, logging_prefix, numresults, cookiestxt, cookiestxt_file, us_uhd, drm_supported, kodi_version):
         self.logging_prefix = logging_prefix
         self.numResults = numresults
         self.client_id = str(uuid.uuid1())
         self.device_id = self.client_id.replace("-", "")
         self.us_uhd = us_uhd
         self.drm_supported = drm_supported
+        self.invalid_token_checked = False
 
         self.http_session = requests.Session()
         self.settings_folder = settings_folder
@@ -48,7 +49,7 @@ class Dplay(object):
 
         # Realm config
         realm_config    = self.load_realm_config()
-        realm          = 'realm=' + realm_config['realm']
+        realm           = 'realm=' + realm_config['realm']
         siteLookupKey   = ',siteLookupKey=' + realm_config['siteLookupKey'] if realm_config.get('siteLookupKey') else ''
         bid             = ',bid=' + realm_config['brandId'] if realm_config.get('brandId') else ''
         hn              = ',hn=www.discoveryplus.com'
@@ -60,7 +61,7 @@ class Dplay(object):
             self.contentRatingSystem = 'DMEC'
         else:
             disco_params = realm + siteLookupKey + bid + hn + hth + ',features=ar'
-            disco_client = 'WEB:UNKNOWN:dplus_us:1.25.0'
+            disco_client = 'WEB:UNKNOWN:dplus_us:1.38.0'
             if realm_config.get('mainTerritoryCode'):
 
                 # Content rating systems
@@ -86,18 +87,17 @@ class Dplay(object):
             'x-disco-client': disco_client
         }
 
+        # client_name/client_version (manufacturer/model; operating system/version)
+        self.device_info = \
+            'dplus_us/1.38.0 (Kodi Foundation/Kodi {kodi_version}; {os_name}/{os_version}; {device_id})'\
+                .format(kodi_version=kodi_version, os_name=self.get_system_platform(), os_version=self.get_system_platform_version(), device_id=self.device_id)
+
         # Use exported cookies.txt
         if cookiestxt:
             self.cookie_jar = cookielib.MozillaCookieJar(cookiestxt_file)
-        # Else try to use user defined cookie from add-on settings
+        # Code login cookies and user defined cookie
         else:
             self.cookie_jar = cookielib.LWPCookieJar(os.path.join(self.settings_folder, 'cookie_file'))
-
-            ck = cookielib.Cookie(version=0, name='st', value=cookie, port=None, port_specified=False,
-                                domain=realm_config['domain'], domain_specified=False, domain_initial_dot=False, path='/',
-                                path_specified=True, secure=False, expires=None, discard=True, comment=None,
-                                comment_url=None, rest={'HttpOnly': None}, rfc2109=False)
-            self.cookie_jar.set_cookie(ck)
 
         try:
             self.cookie_jar.load(ignore_discard=True, ignore_expires=True)
@@ -140,6 +140,15 @@ class Dplay(object):
                 self.cookie_jar.save(ignore_discard=True, ignore_expires=True)
             except IOError:
                 pass
+            # Check for invalid session token
+            if self.invalid_token_checked is False:
+                if self.check_invalid_token(req.content):
+                    self.invalid_token_checked = True
+                    # Get new token and reload data
+                    self.get_token()
+                    return self.make_request(url, method, params, payload, headers, text)
+
+            # Check for errors
             self.raise_dplay_error(req.content)
             if text:
                 return req.text
@@ -169,7 +178,53 @@ class Dplay(object):
         except ValueError:  # when response is not in json
             pass
 
-    def get_token(self):
+    def get_system_platform(self):
+        platform = 'unknown'
+        if xbmc.getCondVisibility('system.platform.linux') and not xbmc.getCondVisibility('system.platform.android'):
+            platform = 'Linux'
+        elif xbmc.getCondVisibility('system.platform.linux') and xbmc.getCondVisibility('system.platform.android'):
+            platform = 'Android'
+        elif xbmc.getCondVisibility('system.platform.uwp'):
+            platform = 'UWP'
+        elif xbmc.getCondVisibility('system.platform.windows'):
+            platform = 'Windows'
+        elif xbmc.getCondVisibility('system.platform.osx'):
+            platform = 'macOS'
+        elif xbmc.getCondVisibility('system.platform.ios'):
+            platform = 'iOS'
+        elif xbmc.getCondVisibility('system.platform.tvos'):
+            platform = 'tvOS'
+        return platform
+
+    def get_system_platform_version(self):
+        import platform
+        version = 'unknown'
+        if self.get_system_platform() == 'Windows':
+            version = platform.win32_ver()[0]
+        elif self.get_system_platform() == 'macOS':
+            version = platform.mac_ver()[0]
+        elif self.get_system_platform() == 'Android':
+            import subprocess
+            version = subprocess.check_output( ['/system/bin/getprop', 'ro.build.version.release'])
+        return version
+
+    def check_invalid_token(self, response):
+        try:
+            result = False
+            response = json.loads(response)
+            if 'errors' in response:
+                for error in response['errors']:
+                    if 'code' in error.keys():
+                        if error['code'] == 'invalid.token':
+                            result = True
+            return result
+
+        except KeyError:
+            return False
+        except ValueError:  # when response is not in json
+            return False
+
+    def get_token(self, token=None):
         url = '{api_url}/token'.format(api_url=self.api_url)
 
         params = {
@@ -178,7 +233,29 @@ class Dplay(object):
             'shortlived': 'true'
         }
 
-        return self.make_request(url, 'get', params=params, headers=self.site_headers)
+        headers = self.site_headers
+        # Register used device to discovery+. Only works when code login is used.
+        headers['x-device-info'] = self.device_info
+        # Use provided token to get new cookie
+        if token:
+            headers['cookie'] = 'st=' + token
+
+        return self.make_request(url, 'get', params=params, headers=headers)
+
+    def linkDevice_initiate(self):
+        url = '{api_url}/authentication/linkDevice/initiate'.format(api_url=self.api_url)
+
+        return json.loads(self.make_request(url, 'post', headers=self.site_headers))
+
+    def linkDevice_login(self):
+        url = '{api_url}/authentication/linkDevice/login'.format(api_url=self.api_url)
+        data = self.make_request(url, 'post', headers=self.site_headers)
+
+        if data:
+            return json.loads(data)['data']['attributes']['token']
+        # Return is empty if code is not entered on discoveryplus.com/link
+        else:
+            return None
 
     def get_user_data(self):
         url = '{api_url}/users/me'.format(api_url=self.api_url)

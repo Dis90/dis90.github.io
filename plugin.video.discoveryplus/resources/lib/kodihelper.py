@@ -34,7 +34,7 @@ class KodiHelper(object):
         if not xbmcvfs.exists(self.addon_profile):
             xbmcvfs.mkdir(self.addon_profile)
         self.d = Dplay(self.addon_profile, self.logging_prefix, self.get_setting('numresults'), self.get_setting('cookiestxt'),
-                       self.get_setting('cookiestxt_file'), self.get_setting('cookie'), self.get_setting('us_uhd'), self.get_setting('drm_supported'))
+                       self.get_setting('cookiestxt_file'), self.get_setting('us_uhd'), self.get_setting('drm_supported'), self.get_kodi_version())
 
     def get_addon(self):
         """Returns a fresh addon instance."""
@@ -93,12 +93,6 @@ class KodiHelper(object):
             return query
         else:
             return None
-
-    def check_for_credentials(self):
-        self.d.get_token()  # Get new token before checking credentials
-        if self.d.get_user_data()['attributes']['anonymous'] == True:
-            raise self.d.DplayError(self.language(30022))
-        return True
 
     def reset_settings(self):
         self.set_setting('numresults', '100')
@@ -170,7 +164,7 @@ class KodiHelper(object):
         xbmcplugin.endOfDirectory(self.handle, cacheToDisc=cache)
 
     def refresh_list(self):
-        """Refresh listing after adding or deleting favorites"""
+        """Refresh listing"""
         return xbmc.executebuiltin('Container.Refresh')
 
     # Up Next integration
@@ -528,9 +522,6 @@ class DplusPlayer(xbmc.Player):
         self.helper.log('Video totaltime msec: %s' % str(video_totaltime_msec))
         self.helper.log('Video lastpos msec: %s' % str(video_lastpos_msec))
         self.helper.log('Video percentage watched: %s' % str(video_percentage))
-
-        # Get new token before updating playback progress
-        self.helper.d.get_token()
 
         # Over 92 percent watched = use totaltime
         if video_percentage > 92:
