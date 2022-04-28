@@ -41,7 +41,6 @@ class Dplay(object):
         self.device_id = self.client_id.replace("-", "")
         self.us_uhd = us_uhd
         self.drm_supported = drm_supported
-        self.invalid_token_checked = False
 
         self.http_session = requests.Session()
         self.settings_folder = settings_folder
@@ -89,9 +88,11 @@ class Dplay(object):
         }
 
         # client_name/client_version (manufacturer/model; operating system/version)
+        client = disco_client.split(':')
         self.device_info = \
-            'dplus_us/1.38.0 (Kodi Foundation/Kodi {kodi_version}; {os_name}/{os_version}; {device_id})'\
-                .format(kodi_version=kodi_version, os_name=self.get_system_platform(), os_version=self.get_system_platform_version(), device_id=self.device_id)
+            '{client_name}/{client_version} (Kodi Foundation/Kodi {kodi_version}; {os_name}/{os_version}; {device_id})'\
+                .format(client_name=client[2], client_version=client[3], kodi_version=kodi_version,
+                        os_name=self.get_system_platform(), os_version=self.get_system_platform_version(), device_id=self.device_id)
 
         # Use exported cookies.txt
         if cookiestxt:
@@ -106,9 +107,10 @@ class Dplay(object):
             pass
         self.http_session.cookies = self.cookie_jar
 
-    class DplayError(Exception):
-        def __init__(self, value):
+    class DplusError(Exception):
+        def __init__(self, value, code=None):
             self.value = value
+            self.code = code
 
         def __str__(self):
             return repr(self.value)
@@ -117,7 +119,19 @@ class Dplay(object):
         msg = '%s: %s' % (self.logging_prefix, string)
         xbmc.log(msg=msg, level=xbmc.LOGDEBUG)
 
-    def make_request(self, url, method, params=None, payload=None, headers=None, text=False):
+    def make_request(self, url, method, params=None, payload=None, headers=None):
+        """Make an HTTP request. Return the response."""
+        try:
+            return self._make_request(url, method, params=params, payload=payload, headers=headers)
+        except self.DplusError as error:
+            if error.code == 'invalid.token':
+                # Get new token and reload data
+                self.get_token()
+                return self._make_request(url, method, params=params, payload=payload, headers=headers)
+            else:
+                raise
+
+    def _make_request(self, url, method, params=None, payload=None, headers=None):
         """Make an HTTP request. Return the response."""
         self.log('Request URL: %s' % url)
         self.log('Method: %s' % method)
@@ -137,8 +151,8 @@ class Dplay(object):
                 req = self.http_session.post(url, params=params, data=payload, headers=headers)
             self.log('Response code: %s' % req.status_code)
 
-            # For security reasons we don't want to log responses from these pages
-            if ('/users/me' in url or '/token' in url) and self.log_userdata_requests is False:
+            # For security reasons we don't want to log responses from these pages if status code is 200
+            if ('/users/me' in url or '/token' in url) and self.log_userdata_requests is False and req.status_code == 200:
                 self.log('Response: %s' % 'HIDDEN RESPONSE')
             else:
                 self.log('Response: %s' % req.content)
@@ -147,18 +161,11 @@ class Dplay(object):
                 self.cookie_jar.save(ignore_discard=True, ignore_expires=True)
             except IOError:
                 pass
-            # Check for invalid session token
-            if self.invalid_token_checked is False:
-                if self.check_invalid_token(req.content):
-                    self.invalid_token_checked = True
-                    # Get new token and reload data
-                    self.get_token()
-                    return self.make_request(url, method, params, payload, headers, text)
 
-            # Check for errors
-            self.raise_dplay_error(req.content)
-            if text:
-                return req.text
+            # Check for errors only if status code is 400 or 403
+            if req.status_code in [400, 403]:
+                self.raise_dplus_error(req.content)
+
             return req.content
 
         except requests.exceptions.ConnectionError as error:
@@ -168,17 +175,13 @@ class Dplay(object):
             self.log('Error: - %s' % error)
             raise
 
-    def raise_dplay_error(self, response):
+    def raise_dplus_error(self, response):
         try:
             response = json.loads(response)
-            #if isinstance(error, dict):
             if 'errors' in response:
                 for error in response['errors']:
-                    if 'code' in error.keys():
-                        if error['code'] == 'unauthorized': # Login error, wrong email or password
-                            raise self.DplayError(error['code']) # Detail is empty in login error
-                        else:
-                            raise self.DplayError(error['detail'])
+                    # raise DplusError when 'errors' in response
+                    raise self.DplusError(error['detail'], error['code'])
 
         except KeyError:
             pass
@@ -215,22 +218,6 @@ class Dplay(object):
             version = subprocess.check_output( ['/system/bin/getprop', 'ro.build.version.release'])
         return version
 
-    def check_invalid_token(self, response):
-        try:
-            result = False
-            response = json.loads(response)
-            if 'errors' in response:
-                for error in response['errors']:
-                    if 'code' in error.keys():
-                        if error['code'] == 'invalid.token':
-                            result = True
-            return result
-
-        except KeyError:
-            return False
-        except ValueError:  # when response is not in json
-            return False
-
     def get_token(self, token=None):
         url = '{api_url}/token'.format(api_url=self.api_url)
 
@@ -247,7 +234,7 @@ class Dplay(object):
         if token:
             headers['cookie'] = 'st=' + token
 
-        return self.make_request(url, 'get', params=params, headers=headers)
+        return self._make_request(url, 'get', params=params, headers=headers)
 
     def linkDevice_initiate(self):
         url = '{api_url}/authentication/linkDevice/initiate'.format(api_url=self.api_url)
@@ -289,8 +276,8 @@ class Dplay(object):
     def get_profiles(self):
         url = '{api_url}/users/me/profiles'.format(api_url=self.api_url)
 
-        data = self.make_request(url, 'get', headers=self.site_headers)
-        return json.loads(data)['data']
+        data = json.loads(self.make_request(url, 'get', headers=self.site_headers))
+        return data
 
     def switch_profile(self, profileId, pin=None):
         jsonPayload = {
