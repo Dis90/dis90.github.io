@@ -61,14 +61,14 @@ class KodiHelper(object):
         msg = '%s: %s' % (self.logging_prefix, string)
         xbmc.log(msg=msg, level=xbmc.LOGDEBUG)
 
-    def dialog(self, dialog_type, heading, message=None, options=None, nolabel=None, yeslabel=None):
+    def dialog(self, dialog_type, heading, message=None, options=None, nolabel=None, yeslabel=None, useDetails=False):
         dialog = xbmcgui.Dialog()
         if dialog_type == 'ok':
             dialog.ok(heading, message)
         elif dialog_type == 'yesno':
             return dialog.yesno(heading, message, nolabel=nolabel, yeslabel=yeslabel)
         elif dialog_type == 'select':
-            ret = dialog.select(heading, options)
+            ret = dialog.select(heading, options, useDetails=useDetails)
             if ret > -1:
                 return ret
             else:
@@ -79,6 +79,83 @@ class KodiHelper(object):
                 return ret
             else:
                 return None
+
+    def profiles_dialog(self):
+        profiles_dict = self.d.get_profiles()
+        avatars = self.d.get_avatars()
+        user_data = self.d.get_user_data()
+
+        profiles = []
+
+        for profile in profiles_dict['data']:
+            image_url = None
+            for avatar in avatars:
+                if avatar['id'] == profile['attributes']['avatarName'].lower():
+                    image_url = avatar['attributes']['imageUrl']
+                # Use default avatar if profile doesn't have avatar
+                elif avatar['id'] == 'default':
+                    image_url = avatar['attributes']['imageUrl']
+
+            info_line = ''
+            if profile['id'] == user_data['attributes']['selectedProfileId']:
+                info_line = self.language(30013) # Current profile
+            elif profile['attributes'].get('pinRestricted'):
+                info_line = self.language(30037)
+
+            # Kids profiles
+            if profile.get('relationships'):
+                profile_restriction_level_id = profile['relationships']['contentRestrictionLevel']['data']['id']
+                restriction_level = [x for x in profiles_dict['included'] if x['id'] == profile_restriction_level_id][0]
+                # Restriction level name and description
+                info_line += self.language(30008) + '[' + restriction_level['attributes']['name'] + '] ' + restriction_level['attributes']['description']
+
+            li = xbmcgui.ListItem(
+                label=profile['attributes']['profileName'],
+                label2=info_line
+            )
+            li.setArt({
+                'thumb': image_url
+            })
+
+            profiles.append(li)
+
+        index = self.dialog('select', self.language(30036), options=profiles, useDetails=True)
+        if index is not None:
+            if profiles_dict['data'][index]['attributes'].get('pinRestricted'):
+                self.profile_pin_dialog(profiles_dict['data'][index])
+            else:
+                self.d.switch_profile(profiles_dict['data'][index]['id'])
+
+    def profile_pin_dialog(self, profile):
+        pin = self.dialog('numeric', self.language(30038) + ' {}'.format(profile['attributes']['profileName']))
+        if pin:
+            try:
+                self.d.switch_profile(profile['id'], pin)
+            # Invalid pin
+            except self.d.DplusError as error:
+                self.dialog('ok', self.language(30006), error.value)
+
+    def linkDevice_dialog(self):
+        linkingCode = self.d.linkDevice_initiate()['data']['attributes']['linkingCode']
+
+        dialog_text = self.language(30046) + '{}'.format(linkingCode)
+
+        pDialog = xbmcgui.DialogProgress()
+        pDialog.create(self.language(30030), dialog_text)
+
+        not_logged = True
+        while not_logged:
+            if pDialog.iscanceled():
+                break
+            xbmc.sleep(5000)  # Check login every 5 seconds
+            link_token = self.d.linkDevice_login()
+            if link_token:
+                pDialog.update(50)
+                # Save cookie
+                self.d.get_token(link_token)
+                not_logged = False
+        pDialog.update(100)
+        pDialog.close()
 
     def get_user_input(self, heading, hidden=False):
         keyboard = xbmc.Keyboard('', heading, hidden)
@@ -324,7 +401,7 @@ class KodiHelper(object):
 
                     xbmc.sleep(1000)
 
-        except self.d.DplayError as error:
+        except self.d.DplusError as error:
             self.dialog('ok', self.language(30006), error.value)
 
 class DplusPlayer(xbmc.Player):

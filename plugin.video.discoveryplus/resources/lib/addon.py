@@ -13,8 +13,8 @@ plugin = routing.Plugin()
 def run():
     try:
         plugin.run()
-    except helper.d.DplayError as error:
-        if error.value == 'unauthorized':  # Login error, wrong email or password
+    except helper.d.DplusError as error:
+        if error.code == 'unauthorized':  # Login error, wrong email or password
             helper.dialog('ok', helper.language(30006), helper.language(30012))
         else:
             helper.dialog('ok', helper.language(30006), error.value)
@@ -31,13 +31,13 @@ def list_menu():
 
     # Cookies.txt login. Login error, show error message
     if helper.d.realm != 'dplusindia' and anonymous_user == True and helper.get_setting('cookiestxt'):
-        raise helper.d.DplayError(helper.language(30022))
+        raise helper.d.DplusError(helper.language(30022))
     # Code login or cookie set from settings. Login error, show login link
     elif helper.d.realm != 'dplusindia' and anonymous_user == True and helper.get_setting('cookiestxt') is False:
-        link_login() # PIN code login
+        helper.add_item(helper.language(30030), url=plugin.url_for(linkDevice), folder=False) # PIN code login
     # d+ India
     elif helper.d.realm == 'dplusindia' and anonymous_user == True:
-        raise helper.d.DplayError(helper.language(30022))
+        raise helper.d.DplusError(helper.language(30022))
     # Login ok, show menu
     else:
         # List menu items (Shows, Categories)
@@ -102,16 +102,14 @@ def list_menu():
                     [x for x in collectionItems if x['id'] == collection['relationships']['items']['data'][0]['id']][0]
                     # Get only links
                     if collectionItem2['relationships'].get('link'):
-                        link = [x for x in links if x['id'] == collectionItem2['relationships']['link']['data']['id']][
-                            0]
+                        link = [x for x in links if x['id'] == collectionItem2['relationships']['link']['data']['id']][0]
                         # Hide unwanted menu links
                         if link['attributes']['kind'] == 'Internal Link' and collection['attributes'][
                             'title'] not in helper.d.unwanted_menu_items:
 
                             # Find page path from routes
                             next_page_path = [x['attributes']['url'] for x in routes if
-                                              x['id'] == link['relationships']['linkedContentRoutes']['data'][0]['id']][
-                                0]
+                                              x['id'] == link['relationships']['linkedContentRoutes']['data'][0]['id']][0]
 
                             link_info = {
                                 'plot': link['attributes'].get('description')
@@ -136,7 +134,7 @@ def list_menu():
 
         # Profiles
         if helper.d.realm != 'dplusindia':
-            helper.add_item(helper.language(30036), url=plugin.url_for(list_profiles))
+            helper.add_item(helper.language(30036), url=plugin.url_for(profiles), folder=False)
 
     helper.finalize_directory(title=helper.get_addon().getAddonInfo('name'))
     helper.eod(cache=False)
@@ -1042,6 +1040,9 @@ def list_collection(collection_id, page=1, mandatoryParams=None, parameter=None)
         # content-grid, content-hero etc
         else:
 
+            # Sometimes items are missing example when My List is empty
+            if page_data['data']['relationships'].get('items') is None:
+                return
             # Get order of content from page_data['data']
             for collection_relationship in page_data['data']['relationships']['items']['data']:
                 # Match collectionItem id's from collection listing to all collectionItems in data
@@ -1500,41 +1501,14 @@ def search():
         helper.log('No search query provided.')
         return False
 
-@plugin.route('/list_profiles')
-def list_profiles():
-    profiles = helper.d.get_profiles()
-    avatars = helper.d.get_avatars()
-    user_data = helper.d.get_user_data()
+@plugin.route('/linkDevice')
+def linkDevice():
+    helper.linkDevice_dialog()
+    helper.refresh_list()
 
-    for profile in profiles:
-
-        image_url = None
-        for avatar in avatars:
-            if avatar['id'] == profile['attributes']['avatarName'].lower():
-                image_url = avatar['attributes']['imageUrl']
-
-        art = {
-            'icon': image_url
-        }
-
-        plugin_url = plugin.url_for(switch_profile, profileId=profile['id'])
-
-        if profile['id'] == user_data['attributes']['selectedProfileId']:
-            profile_name = profile['attributes']['profileName'] + ' *'
-        elif profile['attributes'].get('pinRestricted'):
-            profile_name = profile['attributes']['profileName'] + ' ' + helper.language(30037)
-            plugin_url = plugin.url_for(switch_profile,
-                                        profileId=profile['id'],
-                                        pinRestricted=profile['attributes']['pinRestricted'],
-                                        profileName=profile['attributes']['profileName'])
-        else:
-            profile_name = profile['attributes']['profileName']
-
-        helper.add_item(profile_name, url=plugin_url, art=art)
-
-    folder_name = helper.get_addon().getAddonInfo('name') + ' / ' + helper.language(30036)
-    helper.finalize_directory(title=folder_name)
-    helper.eod()
+@plugin.route('/profiles')
+def profiles():
+    helper.profiles_dialog()
 
 @plugin.route('/add_favorite/<show_id>')
 def add_favorite(show_id):
@@ -1553,47 +1527,6 @@ def play(video_id):
 @plugin.route('/reset_settings')
 def reset_settings():
     helper.reset_settings()
-
-@plugin.route('/switch_profile')
-def switch_profile():
-    if plugin.args.get('pinRestricted'):
-        pin = helper.dialog('numeric', helper.language(30006) + ' {}'.format(plugin.args['profileName'][0]))
-        if pin:
-            try:
-                helper.d.switch_profile(plugin.args['profileId'][0], pin)
-                # Invalid pin
-            except helper.d.DplayError as error:
-                helper.dialog('ok', helper.language(30006), error.value)
-    else:
-        helper.d.switch_profile(plugin.args['profileId'][0])
-    helper.refresh_list()
-
-def link_login():
-    linkingCode = helper.d.linkDevice_initiate()['data']['attributes']['linkingCode']
-
-    dialog_text = helper.language(30046) + '{}'.format(linkingCode)
-
-    import xbmc
-    import xbmcgui
-
-    pDialog = xbmcgui.DialogProgress()
-    pDialog.create(helper.language(30030), dialog_text)
-
-    not_logged = True
-    while not_logged:
-        if pDialog.iscanceled():
-            break
-        xbmc.sleep(10000) # Check login every 10 seconds
-        link_token = helper.d.linkDevice_login()
-        if link_token:
-            pDialog.update(50)
-            # Save cookie
-            helper.d.get_token(link_token)
-            not_logged = False
-    pDialog.update(100)
-    pDialog.close()
-    helper.refresh_list()
-    return
 
 @plugin.route('/mark_video_watched_unwatched/<video_id>')
 def mark_video_watched_unwatched(video_id):
