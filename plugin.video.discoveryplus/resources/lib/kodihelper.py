@@ -411,14 +411,15 @@ class DplusPlayer(xbmc.Player):
         base_url = sys.argv[0]
         handle = int(sys.argv[1])
         self.helper = KodiHelper(base_url, handle)
-        self.video_id = None
-        self.current_show_id = None
-        self.current_episode_info = ''
-        self.current_episode_art = ''
-        self.video_lastpos = 0
-        self.video_totaltime = 0
+        #self.video_id = None
+        #self.current_show_id = None
+        #self.current_episode_info = ''
+        #self.current_episode_art = ''
+        #self.video_lastpos = 0
+        #self.video_totaltime = 0
         self.playing = False
         self.paused = False
+        self.ff_rw = False
 
     def resolve(self, li):
         xbmcplugin.setResolvedUrl(self.helper.handle, True, listitem=li)
@@ -444,6 +445,14 @@ class DplusPlayer(xbmc.Player):
         if self.video_lastpos >= self.video_totaltime:
             self.stop()
 
+    def onPlayBackSpeedChanged(self, speed):
+        """Called when players speed changes (eg. user FF/RW)."""
+        self.helper.log('[DplusPlayer] Event onPlayBackSpeedChanged speed=' + str(speed))
+
+        # 1 is normal playback speed
+        if speed != 1:
+            self.ff_rw = True
+
     def onPlayBackPaused(self):  # pylint: disable=invalid-name
         """Called when user pauses a playing file"""
         self.helper.log('[DplusPlayer] Event onPlayBackPaused')
@@ -453,7 +462,11 @@ class DplusPlayer(xbmc.Player):
     def onPlayBackEnded(self):  # pylint: disable=invalid-name
         """Called when Kodi has ended playing a file"""
         self.helper.log('[DplusPlayer] Event onPlayBackEnded')
-        self.update_playback_progress()
+        # Up Next/Kodi calls onPlayBackEnded two times if user doesn't select Watch Now and video_lastpos is not available on first time
+        try:
+            self.update_playback_progress()
+        except AttributeError:
+            return
         self.playing = False
         # Up Next calls onPlayBackEnded before onPlayBackStarted if user doesn't select Watch Now
         # Reset current video id
@@ -478,6 +491,9 @@ class DplusPlayer(xbmc.Player):
         if self.paused:
             suffix = 'after pausing'
             self.paused = False
+        elif self.ff_rw:
+            suffix = 'after ff/rw'
+            self.ff_rw = False
         # playlist change
         # Up Next uses this when user clicks Watch Now, only happens if user is watching first episode in row after
         # that onPlayBackEnded is used even if user clicks Watch Now
