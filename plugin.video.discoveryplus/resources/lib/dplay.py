@@ -12,7 +12,6 @@ from datetime import datetime, timedelta, date
 import requests
 import uuid
 import xbmcaddon
-import xbmcgui
 import xbmcvfs
 
 try: # Python 3
@@ -301,6 +300,10 @@ class Dplay(object):
             url = '{api_url}/users/me'.format(api_url=self.api_url)
             return self.make_request(url, 'patch', payload=json.dumps(jsonPayload), headers=self.site_headers)
 
+    def logout(self):
+        url = '{api_url}/logout'.format(api_url=self.api_url)
+        return self.make_request(url, 'post', headers=self.site_headers)
+
     def get_menu(self, menu):
         url = '{api_url}/cms/collections{menu}'.format(api_url=self.api_url, menu=menu)
 
@@ -337,7 +340,7 @@ class Dplay(object):
         data = json.loads(self.make_request(url, 'get', params=params, headers=self.site_headers))
         return data
 
-    def get_collections(self, collection_id, page, mandatoryParams=None, parameter=None):
+    def get_collections(self, collection_id, page, mandatoryParams=None, parameter=None, itemsSize=None):
         mandatoryParams = None if mandatoryParams == 'None' else mandatoryParams
         parameter = None if parameter == 'None' else parameter
 
@@ -350,10 +353,12 @@ class Dplay(object):
         else:
             url = '{api_url}/cms/collections/{collection_id}'.format(api_url=self.api_url, collection_id=collection_id)
 
+        # itemsSize is used to force displayed items count to 100
+        # This is needed for marking seasons watched/unwatched
         params = {
             'include': 'default',
             'page[items.number]': page,
-            'page[items.size]': self.numResults
+            'page[items.size]': itemsSize if itemsSize else self.numResults
         }
 
         # discoveryplus.com (go=US and Canada) and discoveryplus.in
@@ -506,7 +511,7 @@ class Dplay(object):
 
                 for channel in channels:
                     if channel['attributes']['hasLiveStream']:
-                        url = 'plugin://plugin.video.discoveryplus/play/{channel_id}?video_type=channel'.format(
+                        url = 'plugin://plugin.video.discoveryplus/play/channel/{channel_id}'.format(
                             channel_id=channel['id'])
 
                         channel_logo = None
@@ -549,7 +554,7 @@ class Dplay(object):
                 channel = [x for x in channels if x['id'] == collectionItem['relationships']['channel']['data']['id']][0]
 
                 if channel['attributes']['hasLiveStream']:
-                    url = 'plugin://plugin.video.discoveryplus/play/{channel_id}?video_type=channel'.format(
+                    url = 'plugin://plugin.video.discoveryplus/play/channel/{channel_id}'.format(
                         channel_id=channel['id'])
 
                     channel_logo = None
@@ -591,7 +596,7 @@ class Dplay(object):
                 channel = [x for x in channels if x['id'] == collectionItem['relationships']['channel']['data']['id']][0]
 
                 if channel['attributes']['hasLiveStream']:
-                    url = 'plugin://plugin.video.discoveryplus/play/{channel_id}?video_type=channel'.format(
+                    url = 'plugin://plugin.video.discoveryplus/play/channel/{channel_id}'.format(
                         channel_id=channel['id'])
 
                     channel_logo = None
@@ -760,8 +765,9 @@ class Dplay(object):
     def get_stream(self, video_id, video_type):
         stream = {}
 
-        screenHeight = xbmcgui.getScreenHeight()
-        screenWidth = xbmcgui.getScreenWidth()
+        # This will output window size if Kodi is in windowed mode
+        #screenHeight = xbmc.getInfoLabel('System.ScreenHeight')
+        #screenWidth = xbmc.getInfoLabel('System.ScreenWidth')
 
         # Use drmSupported:false for UHD streams. For now playback is only tested to kinda work when drm and
         # InputStreamAdaptive is disabled from add-on settings. It is possible that drm/mpd stream also works on Android devices.
@@ -770,9 +776,13 @@ class Dplay(object):
             hwDecoding = ['H264','H265']
             platform = 'firetv'
             drmSupported = 'false'
+            screenWidth = 3840
+            screenHeight = 2160
         else:
             hwDecoding = []
             platform = 'desktop'
+            screenWidth = 1920
+            screenHeight = 1080
             if self.drm_supported:
                 drmSupported = 'true'
             else:

@@ -17,7 +17,9 @@ msgctxt "#30000"
 msgid "General"
 msgstr "Yleiset"
 
-#empty string with id 30001
+msgctxt "#30001"
+msgid "Logout"
+msgstr "Kirjaudu ulos"
 
 msgctxt "#30002"
 msgid "Playable "
@@ -176,9 +178,33 @@ msgid "Reset resume position (d+)"
 msgstr "Unohda katselutilanne (d+)"
 
 msgctxt "#30045"
-msgid "Show watched season markers\n\rWarning: This will slow down loading seasons page"
-msgstr "Näytä katsottujen kausien merkinnät\n\rVaroitus: Tämä hidastaa kausinäkymän latausta"
+msgid "Show watched season markers"
+msgstr "Näytä katsottujen kausien merkinnät"
 
 msgctxt "#30046"
 msgid "Go on your mobile phone, tablet or computer[CR]{linkDevice_url}[CR]When prompted, enter this 6-digit code:[CR]{linkingCode}"
 msgstr "Siirry matkapuhelimella, tabletilla tai tietokoneella[CR]{linkDevice_url}[CR]Kirjoita pyydettäessä tämä 6-numeroinen koodi:[CR]{linkingCode}"
+
+msgctxt "#30047"
+msgid "Warning: This will slow down loading seasons page"
+msgstr "Varoitus: Tämä hidastaa kausinäkymän latausta"
+
+msgctxt "#30048"
+msgid "Select first unwatched TV show season / episode"
+msgstr "Valitse sarjan ensimmäinen katsomaton kausi / jakso"
+
+msgctxt "#30049"
+msgid "Never"
+msgstr "Ei koskaan"
+
+msgctxt "#30050"
+msgid "On first entry"
+msgstr "Ensimmäisellä avauskerralla"
+
+msgctxt "#30051"
+msgid "Always"
+msgstr "Aina"
+
+msgctxt "#30052"
+msgid "Automatic select for season only works when 'season markers' is on"
+msgstr "Kauden automaattinen valinta toimii vain, jos 'kausien merkinnät' on päällä"

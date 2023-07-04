@@ -750,6 +750,8 @@ def list_favorite_watchlist_videos_in():
     else:
         page_data = helper.d.get_favorite_watchlist_videos_in(playlist=plugin.args['playlist'][0])
 
+    user_data = helper.d.get_user_data()
+
     images = list(filter(lambda x: x['type'] == 'image', page_data['included']))
     shows = list(filter(lambda x: x['type'] == 'show', page_data['included']))
     channels = list(filter(lambda x: x['type'] == 'channel', page_data['included']))
@@ -823,7 +825,7 @@ def list_favorite_watchlist_videos_in():
             subscription_needed = True
 
         # Check if user has needed subscription
-        check = any(x in video['attributes']['packages'] for x in helper.d.get_user_data()['attributes']['packages'])
+        check = any(x in video['attributes']['packages'] for x in user_data['attributes']['packages'])
         if check is True:
             subscription_needed = False
         else:
@@ -904,13 +906,15 @@ def list_favorite_watchlist_videos_in():
         else:
             folder_name = 'Watchlist'
 
-        plugin_url = plugin.url_for(play, video_id=video['id'], video_type=video['attributes']['videoType'])
+        plugin_url = plugin.url_for(play, video_id=video['id'], video_type=video['attributes']['videoType'].lower())
 
         helper.add_item(video['attributes'].get('name').lstrip(), url=plugin_url, info=episode_info, art=episode_art,
                         menu=menu, playable=True, resume=resume, total=total)
 
     helper.finalize_directory(content_type='episodes', sort_method='sort_episodes', title=folder_name)
     helper.eod()
+    if helper.get_setting('select_first_unwatched') != '0':
+        helper.autoSelect('episodes')
 
 @plugin.route('/collection/<collection_id>')
 def list_collection(collection_id, page=1, mandatoryParams=None, parameter=None):
@@ -920,6 +924,7 @@ def list_collection(collection_id, page=1, mandatoryParams=None, parameter=None)
 
     page_data = helper.d.get_collections(collection_id=collection_id, page=page, mandatoryParams=mandatoryParams,
                                          parameter=parameter)
+    user_data = helper.d.get_user_data()
 
     folder_name = None
     sort_method = None
@@ -1195,7 +1200,7 @@ def list_collection(collection_id, page=1, mandatoryParams=None, parameter=None)
                         subscription_needed = True
 
                     # Check if user has needed subscription
-                    check = any(x in video['attributes']['packages'] for x in helper.d.get_user_data()['attributes']['packages'])
+                    check = any(x in video['attributes']['packages'] for x in user_data['attributes']['packages'])
                     if check is True:
                         subscription_needed = False
                     else:
@@ -1308,7 +1313,7 @@ def list_collection(collection_id, page=1, mandatoryParams=None, parameter=None)
                         sort_method = 'unsorted'
 
                     plugin_url = plugin.url_for(play, video_id=video['id'],
-                                                video_type=video['attributes']['videoType'])
+                                                video_type=video['attributes']['videoType'].lower())
 
                     content_type = 'episodes'
 
@@ -1492,6 +1497,9 @@ def list_collection(collection_id, page=1, mandatoryParams=None, parameter=None)
 
     helper.finalize_directory(content_type=content_type, sort_method=sort_method, title=folder_name)
     helper.eod(cache)
+    if helper.get_setting('select_first_unwatched') != '0':
+        if content_type in ['seasons', 'episodes']:
+            helper.autoSelect(content_type)
 
 @plugin.route('/search')
 def search():
@@ -1528,13 +1536,17 @@ def delete_favorite(show_id):
     helper.d.add_or_delete_favorite(method='delete', show_id=show_id)
     helper.refresh_list()
 
-@plugin.route('/play/<video_id>')
-def play(video_id):
-    helper.play_item(video_id, plugin.args['video_type'][0])
+@plugin.route('/play/<video_type>/<video_id>')
+def play(video_id, video_type):
+    helper.play_item(video_id, video_type)
 
 @plugin.route('/reset_settings')
 def reset_settings():
     helper.reset_settings()
+
+@plugin.route('/logout')
+def logout():
+    helper.d.logout()
 
 @plugin.route('/mark_video_watched_unwatched/<video_id>')
 def mark_video_watched_unwatched(video_id):
@@ -1547,7 +1559,7 @@ def mark_season_watched_unwatched(collection_id):
     parameter = plugin.args['parameter'][0] if plugin.args.get('parameter') else None
 
     page_data = helper.d.get_collections(collection_id=collection_id, page=1, mandatoryParams=mandatoryParams,
-                                         parameter=parameter)
+                                         parameter=parameter, itemsSize=100)
 
     import xbmc
 
@@ -1584,7 +1596,7 @@ def mark_season_watched_unwatched(collection_id):
 
 def season_has_unwatched_episodes(collection_id, mandatoryParams=None, parameter=None):
     page_data = helper.d.get_collections(collection_id=collection_id, page=1, mandatoryParams=mandatoryParams,
-                                         parameter=parameter)
+                                         parameter=parameter, itemsSize=100)
 
     total = 0
     watched = 0
