@@ -92,10 +92,11 @@ class Dplay(object):
 
         # client_name/client_version (manufacturer/model; operating system/version)
         client = disco_client.split(':')
+        system, system_version = self.get_system()
         self.device_info = \
             '{client_name}/{client_version} (Kodi Foundation/Kodi {kodi_version}; {os_name}/{os_version}; {device_id})'\
                 .format(client_name=client[2], client_version=client[3], kodi_version=kodi_version,
-                        os_name=self.get_system_platform(), os_version=self.get_system_platform_version(), device_id=self.device_id)
+                        os_name=system, os_version=system_version, device_id=self.device_id)
 
         # Use exported cookies.txt
         if cookiestxt:
@@ -191,35 +192,34 @@ class Dplay(object):
         except ValueError:  # when response is not in json
             pass
 
-    def get_system_platform(self):
-        platform = 'unknown'
-        if xbmc.getCondVisibility('system.platform.linux') and not xbmc.getCondVisibility('system.platform.android'):
-            platform = 'Linux'
-        elif xbmc.getCondVisibility('system.platform.linux') and xbmc.getCondVisibility('system.platform.android'):
-            platform = 'Android'
-        elif xbmc.getCondVisibility('system.platform.uwp'):
-            platform = 'UWP'
-        elif xbmc.getCondVisibility('system.platform.windows'):
-            platform = 'Windows'
-        elif xbmc.getCondVisibility('system.platform.osx'):
-            platform = 'macOS'
-        elif xbmc.getCondVisibility('system.platform.ios'):
-            platform = 'iOS'
-        elif xbmc.getCondVisibility('system.platform.tvos'):
-            platform = 'tvOS'
-        return platform
-
-    def get_system_platform_version(self):
+    def get_system(self):
         import platform
-        version = 'unknown'
-        if self.get_system_platform() == 'Windows':
-            version = platform.win32_ver()[0]
-        elif self.get_system_platform() == 'macOS':
-            version = platform.mac_ver()[0]
-        elif self.get_system_platform() == 'Android':
+        system = 'unknown'
+        if xbmc.getCondVisibility('system.platform.linux') and not xbmc.getCondVisibility('system.platform.android'):
+            system = 'Linux'
+        elif xbmc.getCondVisibility('system.platform.linux') and xbmc.getCondVisibility('system.platform.android'):
+            system = 'Android'
+        elif xbmc.getCondVisibility('system.platform.uwp'):
+            system = 'UWP'
+        elif xbmc.getCondVisibility('system.platform.windows'):
+            system = 'Windows'
+        elif xbmc.getCondVisibility('system.platform.osx'):
+            system = 'macOS'
+        elif xbmc.getCondVisibility('system.platform.ios'):
+            system = 'iOS'
+        elif xbmc.getCondVisibility('system.platform.tvos'):
+            system = 'tvOS'
+
+        system_version = 'unknown'
+        if system == 'Windows':
+            system_version = platform.win32_ver()[0]
+        elif system == 'macOS':
+            system_version = platform.mac_ver()[0]
+        elif system == 'Android':
             import subprocess
-            version = subprocess.check_output( ['/system/bin/getprop', 'ro.build.version.release'])
-        return version
+            system_version = subprocess.check_output( ['/system/bin/getprop', 'ro.build.version.release'])
+
+        return system, system_version
 
     def get_token(self, token=None):
         url = '{api_url}/token'.format(api_url=self.api_url)
@@ -328,8 +328,7 @@ class Dplay(object):
             'include': 'default'
         }
 
-        # discoveryplus.com (go=US and Canada) and discoveryplus.in
-        if self.realm in ['go', 'dplusindia']:
+        if self.realm == 'dplusindia':
             params['decorators'] = 'viewingHistory,isFavorite'
         else:
             params['decorators'] = 'viewingHistory,isFavorite,playbackAllowed'
@@ -362,8 +361,7 @@ class Dplay(object):
             'page[items.size]': itemsSize if itemsSize else self.numResults
         }
 
-        # discoveryplus.com (go=US and Canada) and discoveryplus.in
-        if self.realm in ['go', 'dplusindia']:
+        if self.realm == 'dplusindia':
             params['decorators'] = 'viewingHistory,isFavorite'
         else:
             params['decorators'] = 'viewingHistory,isFavorite,playbackAllowed'
@@ -455,6 +453,8 @@ class Dplay(object):
         fanart_image = None
         logo_image = None
         poster_image = None
+        poster_nologo_image = None
+        landscape_image = None
 
         if image_list:
             for item in image_list['data']:
@@ -463,13 +463,21 @@ class Dplay(object):
                     fanart_image = image['attributes']['src']
                 if image['attributes']['kind'] == 'logo':
                     logo_image = image['attributes']['src']
+                if image['attributes']['kind'] == 'cover_artwork_horizontal':
+                    landscape_image = image['attributes']['src']
                 # discoveryplus.in has logos in poster
                 if self.realm == 'dplusindia':
                     if image['attributes']['kind'] == 'poster':
                         poster_image = image['attributes']['src']
                 else:
+                    # Alternate is used as poster in Home -> Coming soon (US and EU)
+                    # We will overwrite alternate image if poster exists
+                    if image['attributes']['kind'] == 'alternate':
+                        poster_image = image['attributes']['src']
                     if image['attributes']['kind'] == 'poster_with_logo':
                         poster_image = image['attributes']['src']
+                    if image['attributes']['kind'] == 'poster':
+                        poster_nologo_image = image['attributes']['src']
 
         if type and type in ['channel', 'category']:
             thumb = logo_image if logo_image else fanart_image
@@ -483,12 +491,16 @@ class Dplay(object):
         thumb = self.proxy_url + thumb + '?w=800&f=JPG&p=true&q=60' if thumb else None
         logo_image = self.proxy_url + logo_image + '?bf=0&f=png&p=true&q=60&w=700' if logo_image else None
         poster_image = self.proxy_url + poster_image + '?w=800&f=JPG&p=true&q=60' if poster_image else None
+        poster_nologo_image = self.proxy_url + poster_nologo_image + '?w=800&f=JPG&p=true&q=60' if poster_nologo_image else None
+        landscape_image = self.proxy_url + landscape_image + '?w=800&f=JPG&p=true&q=60' if landscape_image else None
 
         art = {
             'fanart': fanart_image,
             'thumb': thumb,
             'clearlogo': logo_image,
-            'poster': poster_image
+            'poster': poster_image,
+            'landscape': landscape_image,
+            'keyart': poster_nologo_image
         }
 
         return art

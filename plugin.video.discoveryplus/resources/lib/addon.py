@@ -69,10 +69,6 @@ def list_menu():
                     next_page_path = [x['attributes']['url'] for x in routes if
                                       x['id'] == link['relationships']['linkedContentRoutes']['data'][0]['id']][0]
 
-                    link_info = {
-                        'plot': link['attributes'].get('description')
-                    }
-
                     thumb_image = None
                     if link['relationships'].get('images'):
                         thumb_image = [x['attributes']['src'] for x in images if
@@ -84,11 +80,10 @@ def list_menu():
 
                     # Replace search button url
                     if link['attributes']['name'].startswith('search'):
-                        helper.add_item(link['attributes']['title'], url=plugin.url_for(search),
-                                        info=link_info, art=link_art)
+                        helper.add_item(link['attributes']['title'], url=plugin.url_for(search), art=link_art)
                     else:
                         helper.add_item(link['attributes']['title'], url=plugin.url_for(list_page, next_page_path),
-                                        info=link_info, art=link_art)
+                                        art=link_art)
 
             # discovery+ India uses collections after collectionItems
             if collectionItem['relationships'].get('collection'):
@@ -109,10 +104,6 @@ def list_menu():
                             next_page_path = [x['attributes']['url'] for x in routes if
                                               x['id'] == link['relationships']['linkedContentRoutes']['data'][0]['id']][0]
 
-                            link_info = {
-                                'plot': link['attributes'].get('description')
-                            }
-
                             thumb_image = None
                             if link['relationships'].get('images'):
                                 thumb_image = [x['attributes']['src'] for x in images if
@@ -123,8 +114,7 @@ def list_menu():
                             }
                             # Have to use collection title instead link title because some links doesn't have title
                             helper.add_item(collection['attributes']['title'],
-                                            url=plugin.url_for(list_page, next_page_path),
-                                            info=link_info, art=link_art)
+                                            url=plugin.url_for(list_page, next_page_path), art=link_art)
 
         # discoveryplus.in
         if helper.d.realm == 'dplusindia':
@@ -723,11 +713,13 @@ def list_favorite_search_shows_in(search_query=None):
         if show['attributes']['isFavorite']:
             menu = []
             menu.append((helper.language(30010),
-                         'RunPlugin(plugin://' + helper.addon_name + '/delete_favorite/' + str(show['id']) + ')',))
+                         'RunPlugin(plugin://{addon_id}/delete_favorite/{show_id})'.format(addon_id=helper.addon_name,
+                                                                                           show_id=str(show['id'])),))
         else:
             menu = []
             menu.append((helper.language(30009),
-                         'RunPlugin(plugin://' + helper.addon_name + '/add_favorite/' + str(show['id']) + ')',))
+                         'RunPlugin(plugin://{addon_id}/add_favorite/{show_id})'.format(addon_id=helper.addon_name,
+                                                                                        show_id=str(show['id'])),))
 
         show_art = helper.d.parse_artwork(show['relationships'].get('images'), images)
 
@@ -860,7 +852,8 @@ def list_favorite_watchlist_videos_in():
         menu = []
         if helper.get_setting('sync_playback'):
             if video['attributes']['viewingHistory']['viewed']:
-                episode_info['lastplayed'] = str(helper.d.parse_datetime(video['attributes']['viewingHistory']['lastStartedTimestamp']))
+                episode_info['lastplayed'] = str(
+                    helper.d.parse_datetime(video['attributes']['viewingHistory']['lastStartedTimestamp']))
                 if 'completed' in video['attributes']['viewingHistory']:
                     if video['attributes']['viewingHistory']['completed']:  # Watched video
                         episode_info['playcount'] = '1'
@@ -868,20 +861,21 @@ def list_favorite_watchlist_videos_in():
                         total = duration
                         # Mark as unwatched
                         menu.append((helper.language(30042),
-                                     'RunPlugin(plugin://' + helper.addon_name + '/mark_video_watched_unwatched/' + str(
-                                         video['id']) + '?position=0' + ')',))
+                                     'RunPlugin(plugin://{addon_id}/mark_video_watched_unwatched/{video_id}?position=0)'.format(
+                                         addon_id=helper.addon_name, video_id=str(video['id'])),))
                     else:  # Partly watched video
                         episode_info['playcount'] = '0'
                         resume = video['attributes']['viewingHistory']['position'] / 1000.0
                         total = duration
                         # Reset resume position
                         menu.append((helper.language(30044),
-                                     'RunPlugin(plugin://' + helper.addon_name + '/mark_video_watched_unwatched/' + str(
-                                         video['id']) + '?position=0' + ')',))
+                                     'RunPlugin(plugin://{addon_id}/mark_video_watched_unwatched/{video_id}?position=0)'.format(
+                                         addon_id=helper.addon_name, video_id=str(video['id'])),))
                         # Mark as watched
                         menu.append((helper.language(30043),
-                                     'RunPlugin(plugin://' + helper.addon_name + '/mark_video_watched_unwatched/' + str(
-                                         video['id']) + '?position=' + str(video['attributes']['videoDuration']) + ')',))
+                                     'RunPlugin(plugin://{addon_id}/mark_video_watched_unwatched/{video_id}?position={duration})'.format(
+                                         addon_id=helper.addon_name, video_id=str(video['id']),
+                                         duration=str(video['attributes']['videoDuration'])),))
                 else:  # Sometimes 'viewed' is True but 'completed' is missing. Example some Live sports
                     episode_info['playcount'] = '0'
                     resume = 0
@@ -894,8 +888,9 @@ def list_favorite_watchlist_videos_in():
                 if video['attributes'].get('videoDuration'):
                     # Mark as watched
                     menu.append((helper.language(30043),
-                                 'RunPlugin(plugin://' + helper.addon_name + '/mark_video_watched_unwatched/' + str(
-                                     video['id']) + '?position=' + str(video['attributes']['videoDuration']) + ')',))
+                                 'RunPlugin(plugin://{addon_id}/mark_video_watched_unwatched/{video_id}?position={duration})'.format(
+                                     addon_id=helper.addon_name, video_id=str(video['id']),
+                                     duration=str(video['attributes']['videoDuration'])),))
         else:  # Kodis resume data used
             resume = None
             total = None
@@ -976,29 +971,35 @@ def list_collection(collection_id, page=1, mandatoryParams=None, parameter=None)
 
                     # Context menu
                     menu = []
-
                     if helper.get_setting('sync_playback'):
                         # Mark as watched
                         menu.append((helper.language(30043),
-                                 'RunPlugin(plugin://' + helper.addon_name + '/mark_season_watched_unwatched/' +
-                                 str(page_data['data']['id']) +
-                                     '?mandatoryParams=' + page_data['data']['attributes']['component'].get('mandatoryParams') +
-                                 '&parameter=' + option['parameter']  + '&watched=True' + ')',))
+                                     'RunPlugin(plugin://{addon_id}/mark_season_watched_unwatched/{page_id}?mandatoryParams={mandatoryParams}&parameter={parameter}&watched=True)'.format(
+                                         addon_id=helper.addon_name, page_id=str(page_data['data']['id']),
+                                         mandatoryParams=page_data['data']['attributes']['component'].get('mandatoryParams'),
+                                         parameter=option['parameter']),))
 
                         # Mark as unwatched
                         menu.append((helper.language(30042),
-                                 'RunPlugin(plugin://' + helper.addon_name + '/mark_season_watched_unwatched/' +
-                                 str(page_data['data']['id']) +
-                                     '?mandatoryParams=' + page_data['data']['attributes']['component'].get('mandatoryParams') +
-                                 '&parameter=' + option['parameter']  + '&watched=False' + ')',))
+                                 'RunPlugin(plugin://{addon_id}/mark_season_watched_unwatched/{page_id}?mandatoryParams={mandatoryParams}&parameter={parameter}&watched=False)'.format(
+                                     addon_id=helper.addon_name, page_id=str(page_data['data']['id']),
+                                     mandatoryParams=page_data['data']['attributes']['component'].get('mandatoryParams'),
+                                     parameter=option['parameter']),))
 
-                    # Genres
-                    g = []
-                    if shows[0]['relationships'].get('txGenres'):
-                        for taxonomyNode in taxonomyNodes:
+                    # taxonomyNodes (genres, countries)
+                    genres = []
+                    countries = []
+                    for taxonomyNode in taxonomyNodes:
+                        # Genres
+                        if shows[0]['relationships'].get('txGenres'):
                             for show_genre in shows[0]['relationships']['txGenres']['data']:
                                 if taxonomyNode['id'] == show_genre['id']:
-                                    g.append(taxonomyNode['attributes']['name'])
+                                    genres.append(taxonomyNode['attributes']['name'])
+                        # Countries
+                        if shows[0]['relationships'].get('txCountry'):
+                            for show_country in shows[0]['relationships']['txCountry']['data']:
+                                if taxonomyNode['id'] == show_country['id']:
+                                    countries.append(taxonomyNode['attributes']['name'])
 
                     # Content rating
                     mpaa = None
@@ -1018,11 +1019,12 @@ def list_collection(collection_id, page=1, mandatoryParams=None, parameter=None)
                         'tvshowtitle': shows[0]['attributes'].get('name'),
                         'plotoutline': shows[0]['attributes'].get('description'),
                         'plot': shows[0]['attributes'].get('longDescription'),
-                        'genre': g,
+                        'genre': genres,
                         'studio': primaryChannel,
                         'season': len(shows[0]['attributes'].get('seasonNumbers')),
                         'episode': shows[0]['attributes'].get('episodeCount'),
-                        'mpaa': mpaa
+                        'mpaa': mpaa,
+                        'country': countries
                     }
 
                     # Show watched sign if all episodes of season are watched
@@ -1067,13 +1069,20 @@ def list_collection(collection_id, page=1, mandatoryParams=None, parameter=None)
                     next_page_path = [x['attributes']['url'] for x in routes if
                                       x['id'] == show['relationships']['routes']['data'][0]['id']][0]
 
-                    # Genres
-                    g = []
-                    if show['relationships'].get('txGenres'):
-                        for taxonomyNode in taxonomyNodes:
+                    # taxonomyNodes (genres, countries)
+                    genres = []
+                    countries = []
+                    for taxonomyNode in taxonomyNodes:
+                        # Genres
+                        if show['relationships'].get('txGenres'):
                             for show_genre in show['relationships']['txGenres']['data']:
                                 if taxonomyNode['id'] == show_genre['id']:
-                                    g.append(taxonomyNode['attributes']['name'])
+                                    genres.append(taxonomyNode['attributes']['name'])
+                        # Countries
+                        if show['relationships'].get('txCountry'):
+                            for show_country in show['relationships']['txCountry']['data']:
+                                if taxonomyNode['id'] == show_country['id']:
+                                    countries.append(taxonomyNode['attributes']['name'])
 
                     # Content rating
                     mpaa = None
@@ -1092,23 +1101,28 @@ def list_collection(collection_id, page=1, mandatoryParams=None, parameter=None)
                         'mediatype': 'tvshow',
                         'plotoutline': show['attributes'].get('description'),
                         'plot': show['attributes'].get('longDescription'),
-                        'genre': g,
+                        'genre': genres,
                         'studio': primaryChannel,
                         'season': len(show['attributes'].get('seasonNumbers')),
                         'episode': show['attributes'].get('episodeCount'),
                         'mpaa': mpaa,
-                        'premiered': show['attributes'].get('premiereDate')
+                        'premiered': show['attributes'].get('premiereDate'),
+                        'country': countries
                     }
 
                     # Add or delete favorite context menu
                     if show['attributes']['isFavorite']:
                         menu = []
                         menu.append((helper.language(30010),
-                                     'RunPlugin(plugin://' + helper.addon_name + '/delete_favorite/' + str(show['id']) + ')',))
+                                     'RunPlugin(plugin://{addon_id}/delete_favorite/{show_id})'.format(
+                                         addon_id=helper.addon_name,
+                                         show_id=str(show['id'])),))
                     else:
                         menu = []
                         menu.append((helper.language(30009),
-                                     'RunPlugin(plugin://' + helper.addon_name + '/add_favorite/' + str(show['id']) + ')',))
+                                     'RunPlugin(plugin://{addon_id}/add_favorite/{show_id})'.format(
+                                         addon_id=helper.addon_name,
+                                         show_id=str(show['id'])),))
 
                     show_art = helper.d.parse_artwork(show['relationships'].get('images'), images)
                     plugin_url = plugin.url_for(list_page, next_page_path)
@@ -1125,13 +1139,30 @@ def list_collection(collection_id, page=1, mandatoryParams=None, parameter=None)
                     video = [x for x in videos if x['id'] == collectionItem['relationships']['video']['data']['id']][0]
                     show = [x for x in shows if x['id'] == video['relationships']['show']['data']['id']][0]
 
-                    # Genres
-                    g = []
-                    if video['relationships'].get('txGenres'):
-                        for taxonomyNode in taxonomyNodes:
+                    # taxonomyNodes (genres, countries, sport)
+                    genres = []
+                    countries = []
+                    for taxonomyNode in taxonomyNodes:
+                        # Genres
+                        if video['relationships'].get('txGenres'):
                             for video_genre in video['relationships']['txGenres']['data']:
                                 if taxonomyNode['id'] == video_genre['id']:
-                                    g.append(taxonomyNode['attributes']['name'])
+                                    genres.append(taxonomyNode['attributes']['name'])
+                        # Countries
+                        if video['relationships'].get('txCountry'):
+                            for video_country in video['relationships']['txCountry']['data']:
+                                if taxonomyNode['id'] == video_country['id']:
+                                    countries.append(taxonomyNode['attributes']['name'])
+                        # Sport example Tennis
+                        if video['relationships'].get('txSports'):
+                            if taxonomyNode['id'] == video['relationships']['txSports']['data'][0]['id']:
+                                sport = taxonomyNode['attributes']['name']
+                        # Olympics sport
+                        elif video['relationships'].get('txOlympicssport'):
+                            if taxonomyNode['id'] == video['relationships']['txOlympicssport']['data'][0]['id']:
+                                sport = taxonomyNode['attributes']['name']
+                        else:
+                            sport = None
 
                     # Content rating
                     mpaa = None
@@ -1139,19 +1170,6 @@ def list_collection(collection_id, page=1, mandatoryParams=None, parameter=None)
                         for contentRating in video['attributes']['contentRatings']:
                             if contentRating['system'] == helper.d.contentRatingSystem:
                                 mpaa = contentRating['code']
-
-                    # Sport example Tennis
-                    if video['relationships'].get('txSports'):
-                        for taxonomyNode in taxonomyNodes:
-                            if taxonomyNode['id'] == video['relationships']['txSports']['data'][0]['id']:
-                                sport = taxonomyNode['attributes']['name']
-                    # Olympics sport
-                    elif video['relationships'].get('txOlympicssport'):
-                        for taxonomyNode in taxonomyNodes:
-                            if taxonomyNode['id'] == video['relationships']['txOlympicssport']['data'][0]['id']:
-                                sport = taxonomyNode['attributes']['name']
-                    else:
-                        sport = None
 
                     # Channel
                     primaryChannel = None
@@ -1233,7 +1251,8 @@ def list_collection(collection_id, page=1, mandatoryParams=None, parameter=None)
                             'plot': plot,
                             'studio': primaryChannel,
                             'duration': duration,
-                            'aired': aired
+                            'aired': aired,
+                            'country': countries
                         }
                     else:
                         episode_info = {
@@ -1243,11 +1262,12 @@ def list_collection(collection_id, page=1, mandatoryParams=None, parameter=None)
                             'season': video['attributes'].get('seasonNumber'),
                             'episode': video['attributes'].get('episodeNumber'),
                             'plot': plot,
-                            'genre': g,
+                            'genre': genres,
                             'studio': primaryChannel,
                             'duration': duration,
                             'aired': aired,
-                            'mpaa': mpaa
+                            'mpaa': mpaa,
+                            'country': countries
                         }
 
                     # Watched status from discovery+
@@ -1262,21 +1282,21 @@ def list_collection(collection_id, page=1, mandatoryParams=None, parameter=None)
                                     total = duration
                                     # Mark as unwatched
                                     menu.append((helper.language(30042),
-                                                 'RunPlugin(plugin://' + helper.addon_name +
-                                                 '/mark_video_watched_unwatched/' + str(video['id']) + '?position=0' + ')',))
+                                                 'RunPlugin(plugin://{addon_id}/mark_video_watched_unwatched/{video_id}?position=0)'.format(
+                                                     addon_id=helper.addon_name, video_id=str(video['id'])),))
                                 else:  # Partly watched video
                                     episode_info['playcount'] = '0'
                                     resume = video['attributes']['viewingHistory']['position'] / 1000.0
                                     total = duration
                                     # Reset resume position
                                     menu.append((helper.language(30044),
-                                                 'RunPlugin(plugin://' + helper.addon_name +
-                                                 '/mark_video_watched_unwatched/' + str(video['id']) + '?position=0' + ')',))
+                                                 'RunPlugin(plugin://{addon_id}/mark_video_watched_unwatched/{video_id}?position=0)'.format(
+                                                     addon_id=helper.addon_name, video_id=str(video['id'])),))
                                     # Mark as watched
                                     menu.append((helper.language(30043),
-                                                 'RunPlugin(plugin://' + helper.addon_name +
-                                                 '/mark_video_watched_unwatched/' + str(video['id']) +
-                                                 '?position=' + str(video['attributes']['videoDuration']) + ')',))
+                                                 'RunPlugin(plugin://{addon_id}/mark_video_watched_unwatched/{video_id}?position={duration})'.format(
+                                                     addon_id=helper.addon_name, video_id=str(video['id']),
+                                                     duration=str(video['attributes']['videoDuration'])),))
                             else:  # Sometimes 'viewed' is True but 'completed' is missing. Example some Live sports
                                 episode_info['playcount'] = '0'
                                 resume = 0
@@ -1289,9 +1309,9 @@ def list_collection(collection_id, page=1, mandatoryParams=None, parameter=None)
                             if video['attributes'].get('videoDuration'):
                                 # Mark as watched
                                 menu.append((helper.language(30043),
-                                             'RunPlugin(plugin://' + helper.addon_name +
-                                             '/mark_video_watched_unwatched/' + str(video['id']) +
-                                             '?position=' + str(video['attributes']['videoDuration']) + ')',))
+                                             'RunPlugin(plugin://{addon_id}/mark_video_watched_unwatched/{video_id}?position={duration})'.format(
+                                                 addon_id=helper.addon_name, video_id=str(video['id']),
+                                                 duration=str(video['attributes']['videoDuration'])),))
                     else:  # Kodis resume data used
                         resume = None
                         total = None
@@ -1429,6 +1449,8 @@ def list_collection(collection_id, page=1, mandatoryParams=None, parameter=None)
                                 helper.add_item(link_title, url=plugin_url, art=category_art)
 
                 # discoveryplus.com (US and EU) search result 'collections' folder content
+                # Home -> Collections
+                # Home -> Coming Soon
                 if collectionItem['relationships'].get('link'):
                     link = [x for x in links if x['id'] == collectionItem['relationships']['link']['data']['id']][0]
 
@@ -1436,19 +1458,11 @@ def list_collection(collection_id, page=1, mandatoryParams=None, parameter=None)
                     next_page_path = [x['attributes']['url'] for x in routes if
                                       x['id'] == link['relationships']['linkedContentRoutes']['data'][0]['id']][0]
 
-                    thumb_image = None
-                    if link['relationships'].get('images'):
-                        thumb_image = [x['attributes']['src'] for x in images if
-                                       x['id'] == link['relationships']['images']['data'][0]['id']][0]
-
                     link_info = {
                         'plot': link['attributes'].get('description')
                     }
 
-                    link_art = {
-                        'fanart': thumb_image,
-                        'thumb': thumb_image
-                    }
+                    link_art = helper.d.parse_artwork(link['relationships'].get('images'), images)
 
                     # Category titles have stored in different places
                     if collectionItem.get('attributes') and collectionItem['attributes'].get('title'):
@@ -1515,7 +1529,7 @@ def search():
     else:
         helper.log('No search query provided.')
         helper.eod()
-        helper.dialog('ok', helper.language(30006), 'No search query provided.')
+        helper.dialog('ok', helper.language(30006), helper.language(30003))
         import xbmc
         xbmc.executebuiltin('Container.Update({0},replace)'.format(plugin.url_for(list_menu)))
 
